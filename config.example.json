@@ -1,0 +1,26 @@
+{
+  "appName": "鲸醒",
+  "companionName": "AI 伙伴",
+  "bridgeDir": "",
+  "dshHome": "",
+  "snowlumaDir": "",
+  "qqExe": "",
+  "nodeExe": "",
+  "ownerQQ": "",
+  "backupScript": "",
+  "guardianTaskName": "",
+  "ports": {
+    "bridge": 3100,
+    "dsh": 3080,
+    "snowluma": 3000,
+    "snowlumaWeb": 5099,
+    "tts": 7860,
+    "comfyui": 8188
+  },
+  "features": {
+    "comfyui": "auto",
+    "tts": "auto",
+    "sleep": "auto",
+    "backup": "auto"
+  }
+}

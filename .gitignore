@@ -1,0 +1,17 @@
+/bin/
+/obj/
+/src/bin/
+/src/obj/
+/dist/
+/cache/
+/cache-demo/
+/ui/
+/ui-demo/
+/config.json
+*.exe
+*.zip
+*.log
+.vs/
+.vscode/
+*.user
+*.suo

@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title id="doc-title">鲸醒</title>
+<link rel="stylesheet" href="md3.css">
+</head>
+<body class="no-trans">
+<div class="app-shell">
+  <aside class="rail" id="rail" aria-label="主导航">
+    <div class="rail-head">
+      <div class="brand-mark" id="brand-mark" title="鲸醒">
+        <svg viewBox="0 0 28 28" width="22" height="22" fill="none" aria-hidden="true">
+          <path d="M5 17.5C5 12.2 9.1 8 14.3 8c3.9 0 7.1 2.2 8.4 5.5.4 1-.3 2.1-1.4 2.1h-2.5c-.6 0-1.1.3-1.5.7-1.1 1.3-2.9 2.2-4.8 2.2H9.2c-1.1 0-1.8 1-1.3 2 .3.6-.1 1.3-.8 1.2C5.8 21.3 5 19.6 5 17.5Z" fill="currentColor" opacity="0.92"/>
+          <path d="M21.2 9.2c1.2-.9 2.4-2.1 2.8-3.4-.3 1.7.5 3.1 1.7 3.9-1.5.5-3.1.2-4.5-.5Z" fill="currentColor"/>
+          <circle cx="11.2" cy="13.1" r="1.25" fill="var(--md-surface)"/>
+        </svg>
+      </div>
+      <span class="brand-text" id="brand-text">鲸醒</span>
+      <button class="rail-toggle icon-ghost no-drag" id="rail-toggle" data-tip="展开侧栏" aria-label="展开或收起侧栏">
+        <span class="ms">view_sidebar</span>
+      </button>
+    </div>
+
+    <nav class="rail-nav">
+      <div class="rail-indicator" id="rail-indicator" aria-hidden="true"></div>
+      <button class="rail-btn active" data-page="dash" data-tip="仪表盘">
+        <span class="rail-pill"><span class="ms">dashboard</span></span>
+        <span class="rail-label">仪表盘</span>
+      </button>
+      <button class="rail-btn" data-page="log" data-tip="日志">
+        <span class="rail-pill"><span class="ms">article</span></span>
+        <span class="rail-label">日志</span>
+      </button>
+      <button class="rail-btn" data-page="theme" data-tip="外观">
+        <span class="rail-pill"><span class="ms">palette</span></span>
+        <span class="rail-label">外观</span>
+      </button>
+      <button class="rail-btn" data-page="settings" data-tip="环境配置">
+        <span class="rail-pill"><span class="ms">tune</span></span>
+        <span class="rail-label">环境</span>
+      </button>
+      <button class="rail-btn" data-page="about" data-tip="关于">
+        <span class="rail-pill"><span class="ms">info</span></span>
+        <span class="rail-label">关于</span>
+      </button>
+    </nav>
+
+    <div class="rail-sp"></div>
+
+    <div class="rail-foot">
+      <div class="rail-status" id="rail-status" data-tip="服务状态：检测中">
+        <span class="dot dot-gray" id="rail-dot"></span>
+        <span class="rail-label" id="rail-status-text">检测中</span>
+      </div>
+      <button class="rail-btn" id="theme-btn" data-tip="主题：跟随系统">
+        <span class="rail-pill"><span class="ms" id="theme-icon">brightness_auto</span></span>
+        <span class="rail-label" id="theme-label">跟随系统</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="titlebar">
+      <div class="tb-left">
+        <h1 class="tb-page-title" id="page-title">仪表盘</h1>
+        <span class="status-chip no-drag" id="tb-status-pill" title="当前运行模式与连接状态">
+          <i class="dot dot-gray" id="tb-pill-dot"></i>
+          <span id="tb-pill-text">检测中</span>
+        </span>
+      </div>
+      <div class="tb-sp"></div>
+      <div class="tb-actions no-drag">
+        <button id="btn-refresh" class="tb-tool-btn" data-act="refresh" title="立即刷新 (F5)">
+          <span class="ms">refresh</span>
+        </button>
+        <button id="btn-palette" class="tb-tool-btn" title="外观设置">
+          <span class="ms">palette</span>
+        </button>
+        <span class="tb-divider" aria-hidden="true"></span>
+        <button class="tb-btn" data-act="min" aria-label="最小化" title="最小化">
+          <span class="ms">remove</span>
+        </button>
+        <button class="tb-btn" data-act="max" aria-label="最大化" title="最大化 / 还原">
+          <span class="ms" id="max-icon">crop_square</span>
+        </button>
+        <button class="tb-btn close" data-act="close" aria-label="隐藏到托盘" title="隐藏到托盘">
+          <span class="ms">close</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main" id="main-scroll">
+      <!-- ==================== 仪表盘 ==================== -->
+      <section id="page-dash" class="page active">
+        <div class="bento">
+          <!-- Unconfigured setup banner (auto-hidden once configured) -->
+          <div class="setup-banner col-12 hidden" id="setup-banner">
+            <span class="ms">travel_explore</span>
+            <div class="sb-text">
+              <b>未自动识别到完整的 qq-bridge 目录</b>
+              <small>可前往「环境」页一键重新嗅探或手动选择工作目录与端口</small>
+            </div>
+            <button class="pill-btn small tonal" id="btn-goto-settings"><span class="ms">tune</span>去配置环境</button>
+          </div>
+
+          <!-- Hero Companion Card (Material 3 Expressive) -->
+          <article class="card hero col-6" id="hero-card">
+            <div class="hero-wave-layer" aria-hidden="true">
+              <div class="hero-wave-spin">
+                <svg viewBox="0 0 100 100" class="hero-wave-svg">
+                  <path id="hero-wave-path" d=""/>
+                </svg>
+              </div>
+            </div>
+            <div class="hero-main">
+              <div class="hero-left">
+                <div class="hero-status-row">
+                  <span class="hero-status-lbl"><span class="ms">monitor_heart</span>状态</span>
+                  <span class="hero-run-pill" id="hero-state-pill">
+                    <i class="dot dot-gray" id="hero-dot"></i>
+                    <span id="hero-state">检测中</span>
+                  </span>
+                </div>
+                <div class="hero-id-row">
+                  <div class="clover-badge" aria-hidden="true">
+                    <svg viewBox="0 0 100 100" class="clover-bg"><path id="hero-clover-path" d=""/></svg>
+                    <svg class="clover-ico" viewBox="0 0 28 28" width="22" height="22" fill="none">
+                      <defs>
+                        <mask id="whale-eye-mask">
+                          <rect width="28" height="28" fill="#fff"/>
+                          <circle cx="11.2" cy="13.1" r="1.3" fill="#000"/>
+                        </mask>
+                      </defs>
+                      <g mask="url(#whale-eye-mask)">
+                        <path d="M5 17.5C5 12.2 9.1 8 14.3 8c3.9 0 7.1 2.2 8.4 5.5.4 1-.3 2.1-1.4 2.1h-2.5c-.6 0-1.1.3-1.5.7-1.1 1.3-2.9 2.2-4.8 2.2H9.2c-1.1 0-1.8 1-1.3 2 .3.6-.1 1.3-.8 1.2C5.8 21.3 5 19.6 5 17.5Z" fill="currentColor" opacity="0.95"/>
+                        <path d="M21.2 9.2c1.2-.9 2.4-2.1 2.8-3.4-.3 1.7.5 3.1 1.7 3.9-1.5.5-3.1.2-4.5-.5Z" fill="currentColor"/>
+                      </g>
+                    </svg>
+                  </div>
+                  <div class="hero-id-stack">
+                    <div class="hero-name" id="hero-name">AI 伙伴</div>
+                    <div class="hero-tags">
+                      <span class="soft-chip" id="hero-mode">—</span>
+                      <span class="soft-chip" id="hero-talk-chip">对话 —</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="hero-meta-grid">
+                  <div class="hm-col">
+                    <span class="hm-cap">运行时长</span>
+                    <strong class="hm-val tabular" id="hero-uptime-hms">00:00:00</strong>
+                  </div>
+                  <div class="hm-col">
+                    <span class="hm-cap">心跳 · 状态</span>
+                    <strong class="hm-val tabular" id="hero-sub">心跳 —</strong>
+                  </div>
+                </div>
+              </div>
+              <button class="hero-toggle play" id="hero-toggle" title="点击启动服务">
+                <span class="hero-fab-glow" aria-hidden="true"></span>
+                <span class="hero-fab-spin" aria-hidden="true">
+                  <svg viewBox="0 0 100 100" class="hero-fab-svg">
+                    <path id="hero-fab-path" d=""/>
+                  </svg>
+                </span>
+                <span class="hero-fab-ico" aria-hidden="true">
+                  <svg class="fab-glyph glyph-play" viewBox="0 0 24 24" width="30" height="30">
+                    <path d="M8.5 6.3c0-1.1 1.2-1.8 2.2-1.2l9.2 5.7c.9.6.9 1.9 0 2.4l-9.2 5.7c-1 .6-2.2-.1-2.2-1.2V6.3Z" fill="currentColor"/>
+                  </svg>
+                  <svg class="fab-glyph glyph-pause" viewBox="0 0 24 24" width="28" height="28">
+                    <rect x="6.5" y="5.5" width="3.8" height="13" rx="1.9" fill="currentColor"/>
+                    <rect x="13.7" y="5.5" width="3.8" height="13" rx="1.9" fill="currentColor"/>
+                  </svg>
+                  <span class="ms fab-glyph glyph-busy">sync</span>
+                </span>
+              </button>
+            </div>
+            <div class="prog" id="prog-box">
+              <div class="prog-head">
+                <span class="prog-text" id="prog-text">准备中…</span>
+                <span class="prog-pct" id="prog-pct">0%</span>
+              </div>
+              <div class="prog-track"><i id="prog-bar"></i></div>
+            </div>
+            <div id="action-result" class="result"></div>
+          </article>
+
+          <!-- VRAM & ComfyUI Card (auto-hidden if ComfyUI disabled) -->
+          <article class="card telemetry col-3" id="vram-card">
+            <div class="card-head">
+              <span class="card-cap">显存占用</span>
+              <span class="soft-chip" id="vram-sub">未启动</span>
+            </div>
+            <div class="stat-num">
+              <span id="stat-vram">—</span><span class="unit">GB</span>
+            </div>
+            <div class="spark-wrap" aria-hidden="true">
+              <svg id="vram-spark" class="spark" viewBox="0 0 180 38" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="vram-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--md-primary)" stop-opacity="0.34"/>
+                    <stop offset="100%" stop-color="var(--md-primary)" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <path class="spark-area" id="vram-area" fill="url(#vram-grad)" d=""/>
+                <path class="spark-line" id="vram-line" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d=""/>
+              </svg>
+            </div>
+            <div class="bar"><i id="bar-vram"></i></div>
+            <div class="card-foot" id="comfy-foot">队列 0 · TTS 离线</div>
+          </article>
+
+          <!-- Sleep & Rhythm Card (auto-hidden if custom sleep / absent) -->
+          <article class="card sleep-card col-3" id="sleep-card">
+            <div class="card-head">
+              <span class="card-cap" id="sleep-cap">作息节律</span>
+              <div class="card-head-right">
+                <span class="soft-chip" id="sleep-src">—</span>
+                <button class="bell-btn idle" data-act="wake" title="醒着，不用叫" disabled>
+                  <span class="ms">notifications_active</span>
+                </button>
+              </div>
+            </div>
+            <div class="stat-num"><span id="sleep-count">—</span></div>
+            <div class="bar bar-sleep"><i id="bar-sleep"></i></div>
+            <div class="sleep-times">
+              <span class="time-pill">入睡 <b id="sleep-bed">—</b></span>
+              <span class="time-pill">起床 <b id="sleep-wake">—</b></span>
+            </div>
+          </article>
+
+          <!-- Row 2: Service Nodes (dynamically col-3 with Comfy/TTS, or col-4 without) -->
+          <article class="card node clickable col-3" id="node-bridge" data-act="openBridge" title="打开桥接控制台">
+            <div class="node-top">
+              <span class="node-ico"><span class="ms">hub</span></span>
+              <span class="node-badge"><i id="m-dot-bridge" class="dot dot-gray"></i><span id="m-bridge">—</span></span>
+            </div>
+            <div class="node-title">桥接核心</div>
+            <div class="node-sub" id="port-bridge-sub">127.0.0.1:3100 · 控制台 <span class="ms inline-ms">open_in_new</span></div>
+          </article>
+
+          <article class="card node clickable col-3" id="node-dsh" data-act="openDsh" title="打开 DSH 网页控制台">
+            <div class="node-top">
+              <span class="node-ico"><span class="ms">terminal</span></span>
+              <span class="node-badge"><i id="m-dot-dsh" class="dot dot-gray"></i><span id="m-dsh">—</span></span>
+            </div>
+            <div class="node-title">DSH 代理</div>
+            <div class="node-sub" id="port-dsh-sub">127.0.0.1:3080 · Web GUI <span class="ms inline-ms">open_in_new</span></div>
+          </article>
+
+          <article class="card node clickable col-3" id="node-sl" data-act="openSnowluma" title="打开 SnowLuma QQ 网关控制台">
+            <div class="node-top">
+              <span class="node-ico"><span class="ms">chat</span></span>
+              <span class="node-badge"><i id="m-dot-sl" class="dot dot-gray"></i><span id="m-sl">—</span></span>
+            </div>
+            <div class="node-title">SnowLuma</div>
+            <div class="node-sub" id="port-sl-sub">127.0.0.1:3000 · QQ 网关 <span class="ms inline-ms">open_in_new</span></div>
+          </article>
+
+          <article class="card node clickable col-3" id="comfy-card" title="点击切换 ComfyUI 启停">
+            <div class="node-top">
+              <span class="node-ico"><span class="ms">auto_awesome</span></span>
+              <span class="md-switch" id="comfy-switch" aria-label="ComfyUI 开关"><i></i></span>
+            </div>
+            <div class="node-title" id="comfy-node-title">画图 / 语音</div>
+            <div class="node-sub" id="comfy-node-sub"><i id="m-dot-comfy" class="dot dot-gray"></i> <span id="m-comfy">—</span> · <span id="comfy-sub">队列 0</span></div>
+          </article>
+
+          <!-- Row 3: Quick Actions + Activity Metrics -->
+          <article class="card col-7">
+            <div class="card-head">
+              <h2>快捷控制</h2>
+              <span class="card-meta">服务启停与本地工具</span>
+            </div>
+            <div class="actions-tier primary-tier">
+              <button class="act-btn tonal" data-act="restartAll">
+                <span class="ms">restart_alt</span>
+                <span class="act-txt"><b>重启全部服务</b><small>QQ · 网关 · 桥接</small></span>
+              </button>
+              <button class="act-btn tonal" data-act="restartBridge">
+                <span class="ms">sync</span>
+                <span class="act-txt"><b>仅重启桥接</b><small>热重启桥接进程</small></span>
+              </button>
+              <button class="act-btn danger-tonal" data-act="stopAll">
+                <span class="ms">power_settings_new</span>
+                <span class="act-txt"><b>停止全部服务</b><small>停用所有后台服务进程</small></span>
+              </button>
+            </div>
+            <div class="actions-tier util-tier">
+              <button class="pill-btn" id="btn-backup" data-act="backup"><span class="ms">save</span>立即备份</button>
+              <button class="pill-btn" id="btn-comfy-start" data-act="comfyStart"><span class="ms">play_arrow</span>启动 ComfyUI</button>
+              <button class="pill-btn" id="btn-comfy-stop" data-act="comfyStop"><span class="ms">stop</span>停止 ComfyUI</button>
+              <button class="pill-btn" data-act="openFolder"><span class="ms">folder_open</span>桥接目录</button>
+              <button class="pill-btn" id="btn-goto-log"><span class="ms">article</span>查看日志</button>
+            </div>
+            <div class="actions-foot">
+              <span class="ms">tips_and_updates</span>
+              <span>点击上方节点卡片可直达网页控制台；关闭窗口隐藏至系统托盘</span>
+            </div>
+          </article>
+
+          <article class="card col-5">
+            <div class="card-head">
+              <h2>运行指标</h2>
+              <span class="card-meta" id="k-talk-meta">上次对话 —</span>
+            </div>
+            <div class="metric-grid" id="metric-grid">
+              <div class="metric-tile">
+                <div class="m-top"><span class="ms">forum</span><span>今日回合</span></div>
+                <div class="m-val" id="k-turns">—</div>
+              </div>
+              <div class="metric-tile" id="tile-draws">
+                <div class="m-top"><span class="ms">image</span><span>今日出图</span></div>
+                <div class="m-val" id="k-draws">—</div>
+              </div>
+              <div class="metric-tile" id="tile-debt">
+                <div class="m-top"><span class="ms">bedtime</span><span>睡眠债</span></div>
+                <div class="m-val" id="k-debt">—</div>
+              </div>
+              <div class="metric-tile">
+                <div class="m-top"><span class="ms">memory</span><span>启动器内存</span></div>
+                <div class="m-val-row">
+                  <span class="m-val" id="k-mem">—</span>
+                  <svg class="mini-spark" viewBox="0 0 64 20" preserveAspectRatio="none" aria-hidden="true">
+                    <path id="mem-line" fill="none" stroke="var(--md-primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d=""/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="heartbeat-bar">
+              <span class="dot dot-green" id="hb-dot"></span>
+              <span class="hb-label">桥接心跳</span>
+              <strong id="k-beat">—</strong>
+              <span class="hb-sp"></span>
+              <span class="hb-tts" id="tts-line">TTS 离线</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ==================== 日志查看器 ==================== -->
+      <section id="page-log" class="page">
+        <article class="card log-card">
+          <div class="log-toolbar">
+            <div class="search-box">
+              <span class="ms">search</span>
+              <input id="log-search" type="search" placeholder="筛选日志关键词或时间戳…" autocomplete="off">
+            </div>
+            <div class="seg-group compact-seg" id="log-filters">
+              <span class="seg-thumb" aria-hidden="true"></span>
+              <button class="seg active" data-filter="all">全部</button>
+              <button class="seg" data-filter="chat">对话</button>
+              <button class="seg" data-filter="unread">未读</button>
+              <button class="seg" data-filter="warn">异常</button>
+            </div>
+            <div class="log-controls">
+              <label class="switch-chip" title="每 3 秒自动拉取日志">
+                <span>自动</span>
+                <span class="md-switch small" id="log-auto"><i></i></span>
+              </label>
+              <label class="switch-chip" title="刷新后滚动到底部">
+                <span>滚底</span>
+                <span class="md-switch small on" id="log-follow"><i></i></span>
+              </label>
+              <button class="pill-btn small" id="log-copy" title="复制当前日志"><span class="ms">content_copy</span>复制</button>
+              <button class="pill-btn small tonal" data-act="log"><span class="ms">refresh</span>刷新</button>
+              <span class="soft-chip" id="log-count">0 行</span>
+            </div>
+          </div>
+          <div id="log-box" class="log-stream">正在加载日志…</div>
+        </article>
+      </section>
+
+      <!-- ==================== 外观工作室 ==================== -->
+      <section id="page-theme" class="page">
+        <div class="bento">
+          <article class="card col-6">
+            <div class="card-head">
+              <h2>主题模式</h2>
+              <span class="card-meta">Material You · 与系统标题栏联动</span>
+            </div>
+            <div class="seg-group wide-seg" id="theme-seg">
+              <span class="seg-thumb" aria-hidden="true"></span>
+              <button class="seg" data-theme-mode="auto"><span class="ms">brightness_auto</span>跟随系统</button>
+              <button class="seg" data-theme-mode="light"><span class="ms">light_mode</span>浅色</button>
+              <button class="seg" data-theme-mode="dark"><span class="ms">dark_mode</span>深色</button>
+            </div>
+
+            <div class="setting-list">
+              <div class="setting-row clickable-row" id="opt-pure-black">
+                <div class="s-info">
+                  <b>纯黑暗色模式（AMOLED）</b>
+                  <small>仅在深色模式下将画布与表面沉降至纯黑</small>
+                </div>
+                <span class="md-switch" id="sw-pure-black"><i></i></span>
+              </div>
+              <div class="setting-row clickable-row" id="opt-compact">
+                <div class="s-info">
+                  <b>紧凑卡片密度</b>
+                  <small>收紧网格间距与内边距，一屏展示更集中</small>
+                </div>
+                <span class="md-switch" id="sw-compact"><i></i></span>
+              </div>
+              <div class="setting-row clickable-row" id="opt-rail-expand">
+                <div class="s-info">
+                  <b>默认展开侧栏</b>
+                  <small>启动或切换页面时保持左侧文字标签展开</small>
+                </div>
+                <span class="md-switch" id="sw-rail-expand"><i></i></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card col-6">
+            <div class="card-head">
+              <h2>动态取色（Seed Color）</h2>
+              <span class="card-meta" id="seed-hex-label">#7C5DFF</span>
+            </div>
+            <div class="swatch-grid" id="swatch-grid">
+              <button class="swatch-card" data-seed="system" title="跟随 Windows 主题强调色">
+                <span class="swatch-dot" id="sys-accent-dot"><span class="ms swatch-check" aria-hidden="true">check</span></span>
+                <span>系统色</span>
+              </button>
+              <button class="swatch-card" data-seed="#7c5dff"><span class="swatch-dot" style="background:#7c5dff"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>紫罗兰</span></button>
+              <button class="swatch-card" data-seed="#3b82f6"><span class="swatch-dot" style="background:#3b82f6"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>海鲸蓝</span></button>
+              <button class="swatch-card" data-seed="#0ea5a0"><span class="swatch-dot" style="background:#0ea5a0"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>青碧玉</span></button>
+              <button class="swatch-card" data-seed="#e05375"><span class="swatch-dot" style="background:#e05375"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>樱绯红</span></button>
+              <button class="swatch-card" data-seed="#e59824"><span class="swatch-dot" style="background:#e59824"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>琥珀金</span></button>
+              <button class="swatch-card" data-seed="#3ba55d"><span class="swatch-dot" style="background:#3ba55d"><span class="ms swatch-check" aria-hidden="true">check</span></span><span>森翠绿</span></button>
+              <label class="swatch-card custom-swatch" title="自定义颜色">
+                <span class="swatch-dot" id="custom-dot"><span class="ms">colorize</span></span>
+                <span>自定义</span>
+                <input type="color" id="seed-picker" value="#7c5dff">
+              </label>
+            </div>
+
+            <div class="palette-preview">
+              <div class="pal-cap">实时色调预览</div>
+              <div class="pal-strip">
+                <div class="pal-chip" style="background:var(--md-primary);color:var(--md-on-primary)">Primary</div>
+                <div class="pal-chip" style="background:var(--md-primary-container);color:var(--md-on-primary-container)">Primary Container</div>
+                <div class="pal-chip" style="background:var(--md-secondary-container);color:var(--md-on-secondary-container)">Secondary Pill</div>
+                <div class="pal-chip" style="background:var(--md-surface-2);color:var(--md-on-surface);border:1px solid var(--md-outline-variant)">Surface 2</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ==================== 环境配置（自动嗅探） ==================== -->
+      <section id="page-settings" class="page">
+        <div class="bento">
+          <article class="card col-7">
+            <div class="card-head">
+              <div>
+                <h2>环境路径与自动嗅探</h2>
+                <span class="card-meta" id="cfg-file-hint">首次启动自动扫描本机进程与配置 · 保存至同目录 config.json</span>
+              </div>
+              <div class="cfg-head-actions">
+                <button class="pill-btn small" id="btn-redetect"><span class="ms">travel_explore</span>重新嗅探</button>
+                <button class="pill-btn small tonal" id="btn-save-cfg"><span class="ms">save</span>保存并应用</button>
+              </div>
+            </div>
+
+            <div class="cfg-list">
+              <div class="cfg-row">
+                <div class="cfg-row-top">
+                  <label for="cfg-bridgeDir">qq-bridge 目录</label>
+                  <span class="cfg-badge warn" id="badge-bridgeDir">未配置</span>
+                </div>
+                <div class="cfg-input-wrap">
+                  <input class="cfg-input" id="cfg-bridgeDir" type="text" placeholder="含 src\bridge.js 的桥接根目录" autocomplete="off">
+                  <button class="pill-btn small" data-browse-folder="bridgeDir"><span class="ms">folder_open</span>选择</button>
+                </div>
+              </div>
+
+              <div class="cfg-row">
+                <div class="cfg-row-top">
+                  <label for="cfg-dshHome">DSH 工作区（DSH_HOME）</label>
+                  <span class="cfg-badge warn" id="badge-dshHome">未配置</span>
+                </div>
+                <div class="cfg-input-wrap">
+                  <input class="cfg-input" id="cfg-dshHome" type="text" placeholder="dsh-packs 目录或 pack 子目录" autocomplete="off">
+                  <button class="pill-btn small" data-browse-folder="dshHome"><span class="ms">folder_open</span>选择</button>
+                </div>
+                <div class="pack-chips hidden" id="dsh-pack-chips"></div>
+              </div>
+
+              <div class="cfg-row">
+                <div class="cfg-row-top">
+                  <label for="cfg-snowlumaDir">SnowLuma 目录</label>
+                  <span class="cfg-badge warn" id="badge-snowlumaDir">未配置</span>
+                </div>
+                <div class="cfg-input-wrap">
+                  <input class="cfg-input" id="cfg-snowlumaDir" type="text" placeholder="含 index.mjs 的 QQ 网关目录" autocomplete="off">
+                  <button class="pill-btn small" data-browse-folder="snowlumaDir"><span class="ms">folder_open</span>选择</button>
+                </div>
+              </div>
+
+              <div class="cfg-grid-2">
+                <div class="cfg-row">
+                  <div class="cfg-row-top">
+                    <label for="cfg-nodeExe">Node.js 路径</label>
+                    <span class="cfg-badge warn" id="badge-nodeExe">未配置</span>
+                  </div>
+                  <div class="cfg-input-wrap">
+                    <input class="cfg-input" id="cfg-nodeExe" type="text" placeholder="node.exe 路径" autocomplete="off">
+                    <button class="pill-btn small" data-browse-file="nodeExe"><span class="ms">folder_open</span></button>
+                  </div>
+                </div>
+                <div class="cfg-row">
+                  <div class="cfg-row-top">
+                    <label for="cfg-qqExe">QQ 主程序（可选）</label>
+                    <span class="cfg-badge warn" id="badge-qqExe">未配置</span>
+                  </div>
+                  <div class="cfg-input-wrap">
+                    <input class="cfg-input" id="cfg-qqExe" type="text" placeholder="QQ.exe 路径（自启使用）" autocomplete="off">
+                    <button class="pill-btn small" data-browse-file="qqExe"><span class="ms">folder_open</span></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cfg-row">
+                <div class="cfg-row-top">
+                  <label for="cfg-backupScript">备份脚本（可选）</label>
+                  <span class="cfg-badge warn" id="badge-backupScript">未配置</span>
+                </div>
+                <div class="cfg-input-wrap">
+                  <input class="cfg-input" id="cfg-backupScript" type="text" placeholder="留空时隐藏「立即备份」按钮；支持 .mjs / .js / .ps1 / .bat" autocomplete="off">
+                  <button class="pill-btn small" data-browse-file="backupScript"><span class="ms">folder_open</span>选择</button>
+                </div>
+              </div>
+
+              <div class="cfg-grid-2">
+                <div class="cfg-row">
+                  <div class="cfg-row-top">
+                    <label for="cfg-ownerQQ">管理员 QQ</label>
+                    <span class="cfg-badge warn" id="badge-ownerQQ">未配置</span>
+                  </div>
+                  <input class="cfg-input" id="cfg-ownerQQ" type="text" placeholder="自动从 config.json 读取" autocomplete="off">
+                </div>
+                <div class="cfg-row">
+                  <div class="cfg-row-top">
+                    <label for="cfg-companionName">伙伴名称 / 应用标题</label>
+                  </div>
+                  <div class="cfg-dual">
+                    <input class="cfg-input" id="cfg-companionName" type="text" placeholder="AI 伙伴" autocomplete="off">
+                    <input class="cfg-input" id="cfg-appName" type="text" placeholder="鲸醒" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card col-5">
+            <div class="card-head">
+              <h2>模块开关与服务端口</h2>
+              <span class="card-meta">按本地实际环境自适应隐藏</span>
+            </div>
+
+            <div class="mod-list">
+              <div class="mod-row">
+                <div class="mod-info"><b>ComfyUI 显存卡</b><small>未安装时选「自动」或「隐藏」</small></div>
+                <div class="seg-group compact-seg mod-seg" id="mod-comfyui" data-feat="comfyui">
+                  <span class="seg-thumb" aria-hidden="true"></span>
+                  <button class="seg active" data-val="auto">自动</button>
+                  <button class="seg" data-val="show">显示</button>
+                  <button class="seg" data-val="hide">隐藏</button>
+                </div>
+              </div>
+              <div class="mod-row">
+                <div class="mod-info"><b>作息节律卡</b><small>结构兼容 night-rhythm.json</small></div>
+                <div class="seg-group compact-seg mod-seg" id="mod-sleep" data-feat="sleep">
+                  <span class="seg-thumb" aria-hidden="true"></span>
+                  <button class="seg active" data-val="auto">自动</button>
+                  <button class="seg" data-val="show">显示</button>
+                  <button class="seg" data-val="hide">隐藏</button>
+                </div>
+              </div>
+              <div class="mod-row">
+                <div class="mod-info"><b>TTS 语音状态</b><small>本地语音端口探活与状态条</small></div>
+                <div class="seg-group compact-seg mod-seg" id="mod-tts" data-feat="tts">
+                  <span class="seg-thumb" aria-hidden="true"></span>
+                  <button class="seg active" data-val="auto">自动</button>
+                  <button class="seg" data-val="show">显示</button>
+                  <button class="seg" data-val="hide">隐藏</button>
+                </div>
+              </div>
+              <div class="mod-row">
+                <div class="mod-info"><b>一键备份按钮</b><small>配置备份脚本后自动显示</small></div>
+                <div class="seg-group compact-seg mod-seg" id="mod-backup" data-feat="backup">
+                  <span class="seg-thumb" aria-hidden="true"></span>
+                  <button class="seg active" data-val="auto">自动</button>
+                  <button class="seg" data-val="show">显示</button>
+                  <button class="seg" data-val="hide">隐藏</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="port-section">
+              <div class="pal-cap">本地服务端口</div>
+              <div class="port-grid">
+                <label class="port-item"><span>桥接</span><input id="port-bridge" type="number" min="1" max="65535" value="3100"></label>
+                <label class="port-item"><span>DSH</span><input id="port-dsh" type="number" min="1" max="65535" value="3080"></label>
+                <label class="port-item"><span>SnowLuma OB</span><input id="port-snowluma" type="number" min="1" max="65535" value="3000"></label>
+                <label class="port-item"><span>SnowLuma Web</span><input id="port-snowlumaWeb" type="number" min="1" max="65535" value="5099"></label>
+                <label class="port-item"><span>ComfyUI</span><input id="port-comfyui" type="number" min="1" max="65535" value="8188"></label>
+                <label class="port-item"><span>TTS</span><input id="port-tts" type="number" min="1" max="65535" value="7860"></label>
+              </div>
+              <div class="cfg-row" style="margin-top:10px">
+                <div class="cfg-row-top">
+                  <label for="cfg-guardianTaskName">计划任务保活名（可选）</label>
+                </div>
+                <input class="cfg-input" id="cfg-guardianTaskName" type="text" placeholder="留空则停启全部时不操作 Windows 计划任务" autocomplete="off">
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ==================== 关于 ==================== -->
+      <section id="page-about" class="page">
+        <div class="bento">
+          <article class="card col-8">
+            <div class="about-hero">
+              <div class="about-emblem">
+                <svg viewBox="0 0 28 28" width="34" height="34" fill="none" aria-hidden="true">
+                  <path d="M5 17.5C5 12.2 9.1 8 14.3 8c3.9 0 7.1 2.2 8.4 5.5.4 1-.3 2.1-1.4 2.1h-2.5c-.6 0-1.1.3-1.5.7-1.1 1.3-2.9 2.2-4.8 2.2H9.2c-1.1 0-1.8 1-1.3 2 .3.6-.1 1.3-.8 1.2C5.8 21.3 5 19.6 5 17.5Z" fill="currentColor" opacity="0.92"/>
+                  <path d="M21.2 9.2c1.2-.9 2.4-2.1 2.8-3.4-.3 1.7.5 3.1 1.7 3.9-1.5.5-3.1.2-4.5-.5Z" fill="currentColor"/>
+                  <circle cx="11.2" cy="13.1" r="1.25" fill="var(--md-primary-container)"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="about-name" id="about-app-title">鲸醒 · 通用伴聊状态与服务面板</h2>
+                <div class="about-badges">
+                  <span class="soft-chip">Windows Desktop</span>
+                  <span class="soft-chip">.NET 8 WinForms</span>
+                  <span class="soft-chip">WebView2 Material You</span>
+                </div>
+              </div>
+            </div>
+            <p class="about-desc" id="about-desc">
+              仅以只读方式读取本地状态文件（<code>mode.json</code> / <code>night-rhythm.json</code> / <code>rest.json</code> / <code>token-usage.jsonl</code>）并探测本机服务端口（3100 / 3080 / 3000），全程不经过模型，也不会写入或改动记忆与对话上下文。
+            </p>
+            <div class="about-note">
+              <span class="ms">info</span>
+              <span>点击「重启桥接」会中止当前正在执行的对话回合，建议在空闲时操作；关闭窗口默认最小化到右下角系统托盘。在「环境」页可随时重新嗅探或关闭不需要的模块卡片。</span>
+            </div>
+          </article>
+
+          <article class="card col-4">
+            <div class="card-head"><h2>快速入口</h2></div>
+            <div class="about-links">
+              <button class="pill-btn full-w" data-act="openBridge"><span class="ms">hub</span>打开桥接控制台</button>
+              <button class="pill-btn full-w" data-act="openDsh"><span class="ms">terminal</span>打开 DSH Web GUI</button>
+              <button class="pill-btn full-w" data-act="openSnowluma"><span class="ms">chat</span>打开 SnowLuma</button>
+              <button class="pill-btn full-w" data-act="openFolder"><span class="ms">folder_open</span>打开桥接目录</button>
+            </div>
+            <div class="shortcut-hint">
+              <span>快捷键</span>
+              <small>Ctrl+1~5 切页 · F5 刷新</small>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="tip" role="tooltip"></div>
+<div id="snackbar" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
