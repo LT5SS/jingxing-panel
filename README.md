@@ -1,4 +1,4 @@
-# JingXing Panel（鲸醒面板 · 通用分享版）
+# JingXing Panel（鲸醒面板）
 
 一个面向 **`qq-bridge` + `DSH` + `SnowLuma`** 技术栈的 Windows 桌面状态面板与服务启动器。基于 **.NET 8 WinForms + WebView2** 与 **Material 3 / Material 3 Expressive** 视觉规范打造。
 
