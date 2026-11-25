@@ -57,6 +57,8 @@
 
 ## 技术说明与二次开发
 
+> **使用 AI 编程助手进行二次开发？** 仓库根目录已内置完整开发地图与协议手册 [AGENTS.md](AGENTS.md)，可直接让 AI 阅读并按规范修改或扩展面板功能。
+
 如果你是自己折腾后台或打算基于本面板扩展功能，下面是完整的技术架构与配置细节。
 
 ### 适配生态与架构设计
@@ -129,7 +131,7 @@ src/
 ### 本地编译打包（需 .NET 8 SDK）
 
 ```powershell
-dotnet publish src\JingXingPanel.csproj -c Release -r win-x64 --self-contained false `
+dotnet publish src\JingXingPanel.csproj -c Release -r win-x64 -p:SelfContained=false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
 ```
 

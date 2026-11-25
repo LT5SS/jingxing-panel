@@ -176,14 +176,6 @@
                 </span>
               </button>
             </div>
-            <div class="prog" id="prog-box">
-              <div class="prog-head">
-                <span class="prog-text" id="prog-text">准备中…</span>
-                <span class="prog-pct" id="prog-pct">0%</span>
-              </div>
-              <div class="prog-track"><i id="prog-bar"></i></div>
-            </div>
-            <div id="action-result" class="result"></div>
           </article>
 
           <!-- VRAM & ComfyUI Card (auto-hidden if ComfyUI disabled) -->
@@ -288,9 +280,9 @@
               </button>
             </div>
             <div class="actions-tier util-tier">
-              <button class="pill-btn" id="btn-backup" data-act="backup"><span class="ms">save</span>立即备份</button>
-              <button class="pill-btn" id="btn-comfy-start" data-act="comfyStart"><span class="ms">play_arrow</span>启动 ComfyUI</button>
-              <button class="pill-btn" id="btn-comfy-stop" data-act="comfyStop"><span class="ms">stop</span>停止 ComfyUI</button>
+              <button class="pill-btn" id="btn-backup" data-act="backup" data-idle-label="立即备份" data-loading-label="备份中…"><span class="ms">save</span><span class="btn-lbl">立即备份</span></button>
+              <button class="pill-btn" id="btn-comfy-start" data-act="comfyStart" data-idle-label="启动 ComfyUI" data-loading-label="启动中…"><span class="ms">play_arrow</span><span class="btn-lbl">启动 ComfyUI</span></button>
+              <button class="pill-btn" id="btn-comfy-stop" data-act="comfyStop" data-idle-label="停止 ComfyUI" data-loading-label="停止中…"><span class="ms">stop</span><span class="btn-lbl">停止 ComfyUI</span></button>
               <button class="pill-btn" data-act="openFolder"><span class="ms">folder_open</span>桥接目录</button>
               <button class="pill-btn" id="btn-goto-log"><span class="ms">article</span>查看日志</button>
             </div>
@@ -669,7 +661,7 @@
 </div>
 
 <div id="tip" role="tooltip"></div>
-<div id="snackbar" role="status" aria-live="polite"></div>
+<div id="toast-stack" class="toast-stack" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>

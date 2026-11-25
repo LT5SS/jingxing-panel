@@ -507,31 +507,46 @@ internal static class Actions
 
         var killed = KillByPort(cfg.Ports.Bridge);
         try { if (!string.IsNullOrEmpty(cfg.StateDir)) File.Delete(Path.Combine(cfg.StateDir, "bridge.lock")); } catch { }
+        // 不把子进程 stdout/stderr 管道绑在面板进程上，防止面板退出/重启导致 EPIPE 崩溃
         var psi = new ProcessStartInfo
         {
-            FileName = nodeExe,
-            Arguments = "src\\bridge.js",
+            FileName = "cmd.exe",
+            Arguments = $"/d /s /c \"\"{nodeExe}\" src\\bridge.js >> auto-out.log 2>> auto-err.log\"",
             WorkingDirectory = cfg.BridgeDir,
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
         };
         if (!string.IsNullOrWhiteSpace(cfg.DshHome))
             psi.Environment["DSH_HOME"] = cfg.DshHome;
 
-        var p = Process.Start(psi);
-        if (p == null) return "启动桥接进程失败";
-        var outLog = Path.Combine(cfg.BridgeDir, "auto-out.log");
-        var errLog = Path.Combine(cfg.BridgeDir, "auto-err.log");
-        p.OutputDataReceived += (_, e) => { if (e.Data != null) { try { File.AppendAllText(outLog, e.Data + "\n"); } catch { } } };
-        p.ErrorDataReceived += (_, e) => { if (e.Data != null) { try { File.AppendAllText(errLog, e.Data + "\n"); } catch { } } };
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
+        if (Process.Start(psi) == null) return "启动桥接进程失败";
         Probe.ResetCache();
         return killed ? "已重启桥接（旧进程已结束）" : "已启动桥接";
+    }
+
+    public static string RestartBridgeWithProgress(Action<string, int> report)
+    {
+        var cfg = ConfigStore.Current;
+        if (!cfg.HasValidBridge) return "请先在「环境」页配置正确的 qq-bridge 目录";
+        report("正在停止旧桥接进程…", 20);
+        var killed = KillByPort(cfg.Ports.Bridge);
+        Thread.Sleep(500);
+        report("正在拉起桥接核心…", 50);
+        var startMsg = RestartBridge();
+        var msg = killed ? "已重启桥接（旧进程已结束）" : startMsg;
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < 15000)
+        {
+            if (Probe.TcpAsync(cfg.Ports.Bridge, 400).GetAwaiter().GetResult())
+            {
+                report("桥接核心已就绪", 100);
+                return msg;
+            }
+            report("等待桥接端口就绪…", Math.Min(92, 55 + (int)(sw.ElapsedMilliseconds / 400)));
+            Thread.Sleep(600);
+        }
+        report("桥接进程已启动", 100);
+        return msg + "（端口仍在初始化）";
     }
 
     public static bool KillByPort(int port)
@@ -641,6 +656,7 @@ internal static class Actions
             sb.Append("；").Append(c ? "ComfyUI 已停" : "ComfyUI 未运行");
         }
         Probe.ResetCache();
+        report("全部服务已停止", 100);
         return sb.ToString();
     }
 
@@ -743,32 +759,46 @@ internal static class Actions
                 ? localNode
                 : (!string.IsNullOrWhiteSpace(cfg.NodeExe) && File.Exists(cfg.NodeExe) ? cfg.NodeExe : "node");
 
-            var psi = new ProcessStartInfo(nodeExe, "index.mjs")
+            var psi = new ProcessStartInfo
             {
+                FileName = "cmd.exe",
+                Arguments = $"/d /s /c \"\"{nodeExe}\" index.mjs >> auto-out.log 2>&1\"",
                 WorkingDirectory = cfg.SnowlumaDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8,
             };
-            var p = Process.Start(psi);
-            var outLog = Path.Combine(cfg.SnowlumaDir, "auto-out.log");
-            p.OutputDataReceived += (_, e) => { if (e.Data != null) { try { File.AppendAllText(outLog, e.Data + "\n"); } catch { } } };
-            p.ErrorDataReceived += (_, e) => { if (e.Data != null) { try { File.AppendAllText(outLog, e.Data + "\n"); } catch { } } };
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
+            if (Process.Start(psi) == null) return "SnowLuma 启动失败";
             return killed ? "SnowLuma 已重启" : "SnowLuma 已启动";
         }
         catch (Exception ex) { return "SnowLuma 重启失败：" + ex.Message; }
+    }
+
+    public static string FormatBridgeJson(string raw, string okFallback, string errPrefix)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return okFallback;
+        var t = raw.Trim();
+        if (!t.StartsWith("{")) return t;
+        try
+        {
+            var j = JsonNode.Parse(t);
+            var ok = j?["ok"]?.GetValue<bool>() ?? true;
+            var err = j?["error"]?.ToString();
+            var note = j?["note"]?.ToString();
+            var msg = j?["message"]?.ToString();
+            if (!ok) return string.IsNullOrWhiteSpace(err) ? errPrefix : errPrefix + "：" + err;
+            if (!string.IsNullOrWhiteSpace(note)) return note;
+            if (!string.IsNullOrWhiteSpace(msg)) return msg;
+            return okFallback;
+        }
+        catch { return okFallback; }
     }
 
     public static string Wake()
     {
         var ownerKey = ConfigStore.Current.OwnerKey;
         if (string.IsNullOrEmpty(ownerKey)) return "请先在「环境」页配置管理员 QQ";
-        return PostBridge("/api/socialV2/wake", JsonSerializer.Serialize(new { key = ownerKey, reason = "launcher" }));
+        var raw = PostBridge("/api/socialV2/wake", JsonSerializer.Serialize(new { key = ownerKey, reason = "launcher" }));
+        return FormatBridgeJson(raw, "已提醒伙伴醒来查看消息", "叫醒失败");
     }
 
     public static string Comfy(string action)
@@ -786,7 +816,93 @@ internal static class Actions
         return PostBridge("/api/socialV2/comfy", JsonSerializer.Serialize(new { key = ownerKey, token, action }));
     }
 
-    public static string Backup()
+    public static string ComfyStartWithProgress(Action<string, int> report)
+    {
+        var cfg = ConfigStore.Current;
+        if (string.IsNullOrEmpty(cfg.OwnerKey)) return "请先在「环境」页配置管理员 QQ";
+        report("正在请求启动 ComfyUI…", 10);
+        // 若用户刚点了重启桥接，先等桥接端口就绪（最多 10 秒）
+        var waitBridge = Stopwatch.StartNew();
+        while (!Probe.TcpAsync(cfg.Ports.Bridge, 350).GetAwaiter().GetResult() && waitBridge.ElapsedMilliseconds < 10000)
+        {
+            Thread.Sleep(500);
+        }
+        var raw = Comfy("start");
+        string note = "", err = "";
+        bool ok = false;
+        try
+        {
+            var j = JsonNode.Parse(raw);
+            ok = j?["ok"]?.GetValue<bool>() ?? false;
+            note = j?["note"]?.ToString() ?? "";
+            err = j?["error"]?.ToString() ?? "";
+        }
+        catch { }
+        if (!ok)
+        {
+            report("启动失败", 100);
+            return string.IsNullOrWhiteSpace(err) ? "ComfyUI 启动失败" : "ComfyUI 启动失败：" + err;
+        }
+        if (note.Contains("本来就开着"))
+        {
+            report("ComfyUI 已在运行", 100);
+            return "ComfyUI 本来就开着";
+        }
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < 120000)
+        {
+            if (Probe.TcpAsync(cfg.Ports.Comfyui, 500).GetAwaiter().GetResult())
+            {
+                report("ComfyUI 已就绪", 100);
+                return "ComfyUI 已启动并就绪";
+            }
+            var sec = Math.Max(1, (int)(sw.ElapsedMilliseconds / 1000));
+            var pct = Math.Min(92, 14 + (int)(sw.ElapsedMilliseconds * 78 / 90000));
+            report($"ComfyUI 启动中（已用 {sec} 秒）…", pct);
+            Thread.Sleep(1800);
+        }
+        report("仍在后台加载模型", 100);
+        return "ComfyUI 仍在后台加载模型，请稍候留意状态";
+    }
+
+    public static string ComfyStopWithProgress(Action<string, int> report)
+    {
+        var cfg = ConfigStore.Current;
+        if (string.IsNullOrEmpty(cfg.OwnerKey)) return "请先在「环境」页配置管理员 QQ";
+        report("正在停止 ComfyUI…", 35);
+        var raw = Comfy("stop");
+        string note = "", err = "";
+        bool ok = false;
+        try
+        {
+            var j = JsonNode.Parse(raw);
+            ok = j?["ok"]?.GetValue<bool>() ?? false;
+            note = j?["note"]?.ToString() ?? "";
+            err = j?["error"]?.ToString() ?? "";
+        }
+        catch { }
+        if (!ok)
+        {
+            report("停止失败", 100);
+            return string.IsNullOrWhiteSpace(err) ? "ComfyUI 停止失败" : "ComfyUI 停止失败：" + err;
+        }
+        if (note.Contains("本来就没开"))
+        {
+            report("ComfyUI 未在运行", 100);
+            return "ComfyUI 本来就没开";
+        }
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < 8000)
+        {
+            if (!Probe.TcpAsync(cfg.Ports.Comfyui, 350).GetAwaiter().GetResult()) break;
+            report("等待显存释放…", Math.Min(90, 50 + (int)(sw.ElapsedMilliseconds / 150)));
+            Thread.Sleep(500);
+        }
+        report("ComfyUI 已停止", 100);
+        return "ComfyUI 已停止";
+    }
+
+    public static string BackupWithProgress(Action<string, int> report)
     {
         var script = ConfigStore.Current.BackupScript;
         if (string.IsNullOrWhiteSpace(script) || !File.Exists(script))
@@ -823,8 +939,31 @@ internal static class Actions
                 UseShellExecute = true,
             };
         }
-        Process.Start(psi);
-        return "备份已在后台开始";
+        try
+        {
+            report("正在打包备份数据…", 12);
+            using var p = Process.Start(psi);
+            if (p == null) return "备份进程启动失败";
+            var sw = Stopwatch.StartNew();
+            while (!p.WaitForExit(1500))
+            {
+                var sec = Math.Max(1, (int)(sw.ElapsedMilliseconds / 1000));
+                var pct = Math.Min(92, 15 + (int)(sw.ElapsedMilliseconds * 75 / 60000));
+                report($"正在备份数据（已用 {sec} 秒）…", pct);
+                if (sw.ElapsedMilliseconds >= 180000)
+                {
+                    report("备份仍在后台继续", 100);
+                    return "备份仍在后台继续，请稍后查看";
+                }
+            }
+            report(p.ExitCode == 0 ? "备份已完成" : "备份结束（有警告）", 100);
+            return p.ExitCode == 0 ? "备份已完成" : $"备份退出码 {p.ExitCode}";
+        }
+        catch (Exception ex)
+        {
+            report("备份失败", 100);
+            return "备份失败：" + ex.Message;
+        }
     }
 
     public static string LogTail(int lines = 200)
@@ -1392,13 +1531,13 @@ internal sealed class MainForm : Form
         var cfg = ConfigStore.Current;
         string result = action switch
         {
-            "restartBridge" => Actions.RestartBridge(),
+            "restartBridge" => RunWithProgress(action, Actions.RestartBridgeWithProgress),
             "restartAll" => RunWithProgress(action, Actions.RestartAll2),
             "stopAll" => RunWithProgress(action, Actions.StopAll),
             "wake" => Actions.Wake(),
-            "comfyStart" => Actions.Comfy("start"),
-            "comfyStop" => Actions.Comfy("stop"),
-            "backup" => Actions.Backup(),
+            "comfyStart" => RunWithProgress(action, Actions.ComfyStartWithProgress),
+            "comfyStop" => RunWithProgress(action, Actions.ComfyStopWithProgress),
+            "backup" => RunWithProgress(action, Actions.BackupWithProgress),
             "openDsh" => Open($"http://127.0.0.1:{cfg.Ports.Dsh}", "已打开 DSH"),
             "openBridge" => Open($"http://127.0.0.1:{cfg.Ports.Bridge}", "已打开桥接控制台"),
             "openSnowluma" => Open($"http://127.0.0.1:{cfg.Ports.SnowlumaWeb}", "已打开 SnowLuma 控制台"),
@@ -1422,7 +1561,7 @@ internal sealed class MainForm : Form
             _ => "未知操作",
         };
         if (IsDisposed || _web.CoreWebView2 == null) return;
-        if (!string.IsNullOrEmpty(result))
+        if (result != null)
             _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "result", action, text = result }));
         if (action == "refresh") { PushWindowState(); PushConfig(); PushStatus(); }
     }
@@ -1439,26 +1578,41 @@ internal sealed class MainForm : Form
         {
             try { File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "cache", "action.log"), DateTime.Now.ToString("HH:mm:ss ") + text + Environment.NewLine); } catch { }
         }
-        var wv = _web.CoreWebView2;
+        void PostUi(object payload)
+        {
+            var json = JsonSerializer.Serialize(payload);
+            try
+            {
+                if (!IsDisposed && IsHandleCreated)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        try { if (!IsDisposed) _web.CoreWebView2?.PostWebMessageAsJson(json); } catch { }
+                    }));
+                }
+            }
+            catch { }
+        }
         Task.Run(() =>
         {
             try
             {
                 LogAction(action + " 开始");
-                var result = job((text, pct) =>
-                {
-                    try { wv?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "progress", action, text, pct })); } catch { }
-                });
+                var result = job((text, pct) => PostUi(new { type = "progress", action, text, pct }));
                 LogAction(action + " 结束：" + result);
-                try { wv?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "result", action, text = result })); } catch { }
+                PostUi(new { type = "result", action, text = result });
             }
             catch (Exception ex)
             {
                 LogAction(action + " 失败：" + ex);
-                try { wv?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "result", action, text = "失败：" + ex.Message })); } catch { }
+                PostUi(new { type = "result", action, text = "失败：" + ex.Message });
+            }
+            finally
+            {
+                PushStatus();
             }
         });
-        return "开始执行…";
+        return null;
     }
 
     private static readonly string[] ThemeModes = { "auto", "light", "dark" };

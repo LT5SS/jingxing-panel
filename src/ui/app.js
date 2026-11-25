@@ -245,14 +245,45 @@ function fmtDur(min) {
   return Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') + 'm';
 }
 
-let snackTimer = null;
-function toast(msg) {
-  const sb = $('snackbar');
-  if (!sb || !msg) return;
-  sb.textContent = msg;
-  sb.classList.add('show');
-  clearTimeout(snackTimer);
-  snackTimer = setTimeout(() => sb.classList.remove('show'), 2600);
+function setPillContent(pill, msg, spin = false) {
+  if (!pill) return;
+  pill.textContent = '';
+  if (spin) {
+    const ic = document.createElement('span');
+    ic.className = 'ms spin';
+    ic.textContent = 'sync';
+    pill.appendChild(ic);
+  }
+  const sp = document.createElement('span');
+  sp.textContent = msg;
+  pill.appendChild(sp);
+}
+
+function schedulePillDismiss(pill, delay = 1500) {
+  if (!pill) return;
+  clearTimeout(pill._hideTimer);
+  pill._hideTimer = setTimeout(() => {
+    pill.classList.remove('show');
+    setTimeout(() => pill.remove(), 260);
+  }, delay);
+}
+
+function createToastPill(msg, opts = {}) {
+  const stack = $('toast-stack');
+  if (!stack || !msg) return null;
+  const pill = document.createElement('div');
+  pill.className = 'toast-pill';
+  setPillContent(pill, msg, !!opts.spin);
+  stack.appendChild(pill);
+  requestAnimationFrame(() => pill.classList.add('show'));
+  if (!opts.sticky) {
+    schedulePillDismiss(pill, opts.duration ?? 2400);
+  }
+  return pill;
+}
+
+function toast(msg, opts = {}) {
+  return createToastPill(msg, opts);
 }
 
 /* ==================== Sparklines ==================== */
@@ -682,8 +713,13 @@ function render(s) {
   setDot($('m-dot-sl'), s.snowluma?.up ? 'green' : 'red');
 
   if (effFeatures.comfyui) {
-    setText('m-comfy', comfyUp ? '运行中' : '已休眠');
-    setDot($('m-dot-comfy'), comfyUp ? 'green' : 'gray');
+    setText('m-comfy', pendingOps.has('comfyStart') ? '启动中…' : pendingOps.has('comfyStop') ? '停止中…' : (comfyUp ? '运行中' : '已休眠'));
+    const comfyDot = $('m-dot-comfy');
+    if (pendingOps.has('comfyStart') || pendingOps.has('comfyStop')) {
+      if (comfyDot) comfyDot.className = 'dot dot-warn pulse';
+    } else {
+      setDot(comfyDot, comfyUp ? 'green' : 'gray');
+    }
     setText('comfy-sub', `队列 ${qCount}`);
     if ($('comfy-switch')) $('comfy-switch').classList.toggle('on', comfyUp);
   }
@@ -1121,48 +1157,146 @@ document.querySelectorAll('[data-browse-file]').forEach((btn) => {
 });
 
 /* ==================== Progress & Actions ==================== */
-function showProgress(text, pct) {
-  const box = $('prog-box');
-  const bar = $('prog-bar');
-  if (!box || !bar) return;
-  const p = Math.max(4, Math.min(100, pct || 0));
-  heroBusy = p < 100;
-  syncHeroBtn();
-  box.style.display = 'block';
-  setText('prog-text', text || '执行中…');
-  setText('prog-pct', p + '%');
-  bar.style.width = p + '%';
-  if (p >= 100) {
-    setTimeout(() => {
-      box.style.display = 'none';
-      bar.style.width = '0%';
-      heroBusy = false;
-      syncHeroBtn();
-    }, 1200);
+const OP_META = {
+  restartAll: { idle: '重启全部服务', loading: '重启中…', toastTitle: '正在重启全部服务', hero: true },
+  stopAll: { idle: '停止全部服务', loading: '停止中…', toastTitle: '正在停止全部服务', hero: true },
+  restartBridge: { idle: '仅重启桥接', loading: '重启中…', toastTitle: '正在重启桥接', hero: false },
+  comfyStart: { idle: '启动 ComfyUI', loading: '启动中…', toastTitle: '正在启动 ComfyUI', hero: false },
+  comfyStop: { idle: '停止 ComfyUI', loading: '停止中…', toastTitle: '正在停止 ComfyUI', hero: false },
+  backup: { idle: '立即备份', loading: '备份中…', toastTitle: '正在备份数据', hero: false },
+};
+const pendingOps = new Map();
+let opTickTimer = null;
+
+function formatActionText(raw) {
+  const txt = String(raw || '').trim();
+  if (!txt) return '';
+  if (!txt.startsWith('{')) return txt;
+  try {
+    const j = JSON.parse(txt);
+    if (j.ok === false) return j.error ? ('操作失败：' + j.error) : '操作失败';
+    if (j.note) return String(j.note);
+    if (j.message) return String(j.message);
+    if (j.running === true) return '已启动';
+    if (j.running === false) return '已停止';
+    return '操作完成';
+  } catch {
+    return txt;
+  }
+}
+
+function renderPendingPills() {
+  if (pendingOps.size === 0) {
+    clearInterval(opTickTimer);
+    opTickTimer = null;
+    return;
+  }
+  for (const [act, entry] of pendingOps.entries()) {
+    const meta = OP_META[act];
+    if (!meta || !entry.pill) continue;
+    const sec = Math.max(0, Math.floor((Date.now() - entry.startedAt) / 1000));
+    setPillContent(entry.pill, `${meta.toastTitle}  ${sec} 秒`, true);
+  }
+}
+
+function setActionPending(act, on) {
+  const meta = OP_META[act];
+  if (!meta) return;
+  if (on) {
+    const pill = createToastPill(`${meta.toastTitle}  0 秒`, { sticky: true, spin: true });
+    pendingOps.set(act, { startedAt: Date.now(), pill });
+  } else {
+    pendingOps.delete(act);
+  }
+
+  if (meta.hero) {
+    heroBusy = pendingOps.has('restartAll') || pendingOps.has('stopAll');
+    syncHeroBtn();
+  }
+
+  document.querySelectorAll(`[data-act="${act}"]`).forEach((b) => {
+    b.classList.toggle('is-loading', on);
+    b.disabled = on;
+    const lbl = b.querySelector('.btn-lbl') || b.querySelector('.act-txt b');
+    const idleLabel = b.dataset.idleLabel || meta.idle;
+    const loadLabel = b.dataset.loadingLabel || meta.loading;
+    if (lbl) lbl.textContent = on ? loadLabel : idleLabel;
+    const ico = b.querySelector('.ms');
+    if (ico) {
+      if (on) {
+        if (!ico.dataset.idleIcon) ico.dataset.idleIcon = ico.textContent;
+        ico.textContent = 'sync';
+        ico.classList.add('spin');
+      } else {
+        if (ico.dataset.idleIcon) ico.textContent = ico.dataset.idleIcon;
+        ico.classList.remove('spin');
+      }
+    }
+  });
+
+  if (act === 'comfyStart' || act === 'comfyStop') {
+    const comfyDot = $('m-dot-comfy');
+    if (on) {
+      setText('m-comfy', act === 'comfyStart' ? '启动中…' : '停止中…');
+      if (comfyDot) comfyDot.className = 'dot dot-warn pulse';
+    } else {
+      setText('m-comfy', comfyUp ? '运行中' : '已休眠');
+      setDot(comfyDot, comfyUp ? 'green' : 'gray');
+    }
+  }
+}
+
+function startOpPending(act) {
+  const meta = OP_META[act];
+  if (!meta) return false;
+  if (pendingOps.has(act)) {
+    renderPendingPills();
+    return true;
+  }
+  if (act === 'comfyStart' && pendingOps.has('comfyStop')) return true;
+  if (act === 'comfyStop' && pendingOps.has('comfyStart')) return true;
+  setActionPending(act, true);
+  if (!opTickTimer) opTickTimer = setInterval(renderPendingPills, 1000);
+  return false;
+}
+
+function finishOpPending(act, text) {
+  const meta = OP_META[act];
+  if (!meta) return;
+  const entry = pendingOps.get(act);
+  setActionPending(act, false);
+  if (pendingOps.size === 0) {
+    clearInterval(opTickTimer);
+    opTickTimer = null;
+  }
+  if (entry?.pill) {
+    const clean = formatActionText(text);
+    if (clean) {
+      const isErr = /失败|超时|异常|未就绪|未配置/.test(clean);
+      setPillContent(entry.pill, clean.slice(0, 80), false);
+      schedulePillDismiss(entry.pill, isErr ? 3200 : 1500);
+    } else {
+      schedulePillDismiss(entry.pill, 0);
+    }
   }
 }
 
 let demoProgTimers = [];
-function runDemoProgress(targetRunning, title) {
+function runDemoProgress(targetRunning, title, action = 'restartAll') {
   demoProgTimers.forEach(clearTimeout);
   demoProgTimers = [];
-  const steps = [
-    [0, `${title}：准备阶段…`, 18],
-    [450, `${title}：模拟调度中…`, 52],
-    [950, `${title}：模拟状态收敛…`, 84],
-    [1450, `${title}完成（未触碰真实服务）`, 100]
-  ];
-  steps.forEach(([delay, msg, pct]) => {
-    demoProgTimers.push(setTimeout(() => {
-      showProgress(msg, pct);
-      if (pct >= 100) {
-        demoToggleOverride = targetRunning;
-        DEMO_STATUS.bridgeStartMs = targetRunning ? Date.now() - (5 * 3600 + 15 * 60 + 18) * 1000 : null;
-        render(DEMO_STATUS);
-        toast(targetRunning ? '测试版：已模拟进入运行状态' : '测试版：已模拟进入停止状态');
-      }
-    }, delay));
-  });
+  startOpPending(action);
+  demoProgTimers.push(setTimeout(() => {
+    if (action === 'comfyStart' || action === 'comfyStop') {
+      DEMO_STATUS.comfy.up = targetRunning;
+      DEMO_STATUS.comfy.vramUsedGB = targetRunning ? 2.6 : null;
+    } else if (action === 'restartAll' || action === 'stopAll') {
+      demoToggleOverride = targetRunning;
+      DEMO_STATUS.bridgeStartMs = targetRunning ? Date.now() - (5 * 3600 + 15 * 60 + 18) * 1000 : null;
+    }
+    finishOpPending(action, `测试版：已完成${title}`);
+    render(DEMO_STATUS);
+  }, 2200));
 }
 
 document.querySelectorAll('[data-act]').forEach((b) => {
@@ -1186,14 +1320,12 @@ document.querySelectorAll('[data-act]').forEach((b) => {
         toast('测试版：已触发模拟叫醒震铃（点睡眠卡空白处可切换睡/醒）');
         return;
       }
-      if (act === 'restartAll') { runDemoProgress(true, '模拟重启服务'); return; }
-      if (act === 'stopAll') { runDemoProgress(false, '模拟停止服务'); return; }
+      if (act === 'restartAll') { runDemoProgress(true, '模拟重启服务', 'restartAll'); return; }
+      if (act === 'stopAll') { runDemoProgress(false, '模拟停止服务', 'stopAll'); return; }
+      if (act === 'restartBridge') { runDemoProgress(true, '模拟重启桥接', 'restartBridge'); return; }
+      if (act === 'backup') { runDemoProgress(true, '模拟备份数据', 'backup'); return; }
       if (act === 'comfyStart' || act === 'comfyStop') {
-        const nextUp = act === 'comfyStart';
-        DEMO_STATUS.comfy.up = nextUp;
-        DEMO_STATUS.comfy.vramUsedGB = nextUp ? 2.6 : null;
-        render(DEMO_STATUS);
-        toast(`测试版：已模拟${nextUp ? '启动' : '停止'} ComfyUI（未执行真实进程）`);
+        runDemoProgress(act === 'comfyStart', act === 'comfyStart' ? '启动 ComfyUI' : '停止 ComfyUI', act);
         return;
       }
       if (act === 'log') {
@@ -1206,6 +1338,7 @@ document.querySelectorAll('[data-act]').forEach((b) => {
     }
     if (!HAS_HOST && act === 'log') { renderLogs(DEMO_LOG_TEXT); toast('已刷新演示日志'); return; }
     if (!HAS_HOST && act === 'refresh') { toast('已刷新状态'); return; }
+    if (OP_META[act] && startOpPending(act)) return;
     post({ action: act });
   });
 });
@@ -1233,15 +1366,13 @@ $('btn-goto-settings')?.addEventListener('click', () => switchPage('settings'));
 
 $('comfy-card')?.addEventListener('click', () => {
   if (!lastFeatures.comfyui) return;
+  const act = comfyUp ? 'comfyStop' : 'comfyStart';
   if (DEMO) {
-    const nextUp = !DEMO_STATUS.comfy.up;
-    DEMO_STATUS.comfy.up = nextUp;
-    DEMO_STATUS.comfy.vramUsedGB = nextUp ? 2.6 : null;
-    render(DEMO_STATUS);
-    toast(`测试版：已模拟${nextUp ? '开启' : '关闭'} ComfyUI 开关`);
+    runDemoProgress(act === 'comfyStart', act === 'comfyStart' ? '启动 ComfyUI' : '停止 ComfyUI', act);
     return;
   }
-  post({ action: comfyUp ? 'comfyStop' : 'comfyStart' });
+  if (startOpPending(act)) return;
+  post({ action: act });
 });
 
 $('hero-toggle')?.addEventListener('click', () => {
@@ -1254,7 +1385,9 @@ $('hero-toggle')?.addEventListener('click', () => {
     toast(next ? '测试版：已启动花瓣波浪动效' : '测试版：已切换回停止态');
     return;
   }
-  post({ action: heroRunning ? 'stopAll' : 'restartAll' });
+  const act = heroRunning ? 'stopAll' : 'restartAll';
+  if (startOpPending(act)) return;
+  post({ action: act });
 });
 
 /* ==================== Theme & Settings Bindings ==================== */
@@ -1318,16 +1451,17 @@ window.chrome?.webview?.addEventListener('message', (e) => {
     const ic = $('max-icon');
     if (ic) ic.textContent = m.maximized ? 'filter_none' : 'crop_square';
   } else if (m.type === 'progress') {
-    showProgress(m.text, m.pct);
+    if (m.action && OP_META[m.action] && !pendingOps.has(m.action)) {
+      startOpPending(m.action);
+    }
   } else if (m.type === 'result') {
     if (m.action === 'log') { renderLogs(m.text || ''); return; }
     if (m.action === 'refresh' || m.action === 'railWidth' || m.action === 'theme') return;
-    const txt = String(m.text || '').trim();
-    if (!txt || txt === 'ok') return;
-    toast(txt.slice(0, 80));
-    if (['restartBridge', 'restartAll', 'stopAll', 'wake', 'comfyStart', 'comfyStop', 'backup'].includes(m.action)) {
-      setText('action-result', txt.slice(0, 160));
-      setTimeout(() => setText('action-result', ''), 6000);
+    const txt = formatActionText(m.text);
+    const wasPending = pendingOps.has(m.action);
+    finishOpPending(m.action, txt);
+    if (!wasPending && txt && txt !== 'ok') {
+      toast(txt.slice(0, 80));
     }
   }
 });
