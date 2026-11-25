@@ -1,6 +1,11 @@
 # JingXing Panel（鲸醒面板）
 
-一个面向 **`qq-bridge` + `DSH` + `SnowLuma`** 技术栈的 Windows 桌面状态面板与服务启动器。基于 **.NET 8 WinForms + WebView2** 与 **Material 3 / Material 3 Expressive** 视觉规范打造。
+更方便的肥鱼控制器！
+Gemini用了都说好！
+（附上一张gemini说好的截屏）
+
+面向 qq-bridge + DSH + SnowLuma 技术栈，集成控制你的大肥鱼状态的桌面启动器与状态面板，基于 .NET 8 WinForms + WebView2 与 Material 3 / Material 3 Expressive 视觉规范打造。
+(软件截屏占位符）
 
 > 开箱自动嗅探本机环境，未安装 `ComfyUI` / `TTS` 或使用自定义睡眠机制时自动隐藏对应卡片，支持在界面中点选目录、开关模块并二次开发扩展。
 
