@@ -19,6 +19,7 @@
 - **打开自动找齐目录**：启动时会自动扫描你电脑上已经运行或存放的组件目录，填好名字、端口和路径；哪怕放到深层目录或想手动切换，也可以直接在面板里点鼠标「选择」文件夹。
 - **能看懂的彩色日志页**：自动把杂乱的纯文本运行日志拆成时间戳和彩色分类胶囊，支持按「全部 / 对话 / 未读 / 异常」过滤和关键词搜索。
 - **随时换外观与生命动效**：内置深色、浅色与纯黑模式，可以自动跟随 Windows 系统主题色或自定义主色调；默认启用「环境生命动效」（小鲸鱼眨眼浮游、心跳 ECG 波形、光晕呼吸与气泡氛围，最小化到托盘自动暂停省电，可在外观页一键关闭）。
+- **内置一键更新**：启动后后台静默检查 GitHub Releases 新版本（并在侧栏「关于」图标提示），支持面板内显示下载进度、校验文件并无损自替换重启，不改配置、不中断正在运行的后台伙伴服务。
 
 ---
 
@@ -46,7 +47,7 @@
 - Microsoft Edge WebView2 Runtime（Win11 与新版 Win10 通常已自带）
 
 ### 2. 下载并启动
-1. 前往本仓库 [**Releases**](https://github.com/LT5SS/jingxing-panel/releases) 下载 `JingXingPanel-v1.2.0-win-x64.zip` 解压，或直接下载单文件 `JingXingPanel.exe`。
+1. 前往本仓库 [**Releases**](https://github.com/LT5SS/jingxing-panel/releases) 下载 `JingXingPanel-v1.3.0-win-x64.zip` 解压，或直接下载单文件 `JingXingPanel.exe`。
 2. 直接双击打开即可：
    - 如果你原来的机器人后台服务正在运行，面板基本会**全自动识别**完成并保存为同目录下的 `config.json`；
    - 如果有少数路径放在深层目录没自动扫到，或者你想手动隐藏某个模块，切到左侧 **「环境」** 页点「选择」或「重新嗅探」，再点 **「保存并应用」** 就行。
@@ -63,7 +64,7 @@
 
 ### 适配生态与架构设计
 - **适配技术栈**：面向 **`qq-bridge` + `DSH` + `SnowLuma`**，并兼容本地 `ComfyUI`、`TTS` 与作息节律状态。
-- **桌面宿主**：`.NET 8 WinForms + WebView2` 单文件桌面应用，支持 WebView2 原生无边框窗口拖拽（`IsNonClientRegionSupportEnabled`）、最大化任务栏避让（`WM_GETMINMAXINFO`）、DWM 标题栏暗亮色联动与单实例唤醒。
+- **桌面宿主**：`.NET 8 WinForms + WebView2` 单文件桌面应用，支持 Win32 原生无边框窗口拖拽（`WM_NCLBUTTONDOWN`）、最大化任务栏避让（`WM_GETMINMAXINFO`）、DWM 标题栏暗亮色联动与单实例唤醒。
 - **前端界面**：零外部构建工具链依赖，原生 HTML / CSS / JS 直接内嵌进 `.exe`。采用 Material 3 / Material 3 Expressive 规范，包含 12 瓣极坐标波浪主启停按钮、弹簧导航/分段指示器、View Transition 圆形主题扩散涟漪以及实时动态调色引擎。
 
 ### 自动嗅探（`AutoDetector`）与 `config.json`
@@ -116,6 +117,7 @@ src/
 ├── JingXingPanel.csproj   # .NET 8 WinForms 工程与内嵌前端资源声明
 ├── app.manifest           # PerMonitorV2 DPI 声明
 ├── Config.cs              # AppConfig 模型 + AutoDetector 本机嗅探器 + ConfigStore
+├── Updater.cs             # GitHub Releases 版本检查、下载校验与单文件自替换重启
 ├── Program.cs             # Probe 状态采集 / Actions 进程控制 / WebView2 宿主与 IPC
 └── ui/
     ├── index.html         # 5 页 Bento 结构（仪表盘 / 日志 / 外观 / 环境 / 关于）

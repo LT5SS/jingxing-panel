@@ -42,7 +42,8 @@
 | [config.example.json](config.example.json) | 配置模板与默认端口/模块开关示例 |
 | [src/JingXingPanel.csproj](src/JingXingPanel.csproj) | 项目文件，`EmbeddedResource` 声明内嵌前端 4 个文件 |
 | [src/Config.cs](src/Config.cs) | `AppConfig`、`PortConfig`、`FeatureConfig`、`AutoDetector`（环境嗅探）、`ConfigStore`（配置读写） |
-| [src/Program.cs](src/Program.cs) | `Probe`（状态采集与模块自适应判定）、`Actions`（进程启停/HTTP 控制）、`Native`（Win32 P/Invoke）、`MainForm`（窗口/托盘/WebView2 IPC）、`Program`（单实例/CLI：`--demo`、`--sniff-test`） |
+| [src/Updater.cs](src/Updater.cs) | `Updater`、`UpdateCheckResult`（GitHub Releases 检查、PE/SHA256 校验与 PowerShell 自替换重启） |
+| [src/Program.cs](src/Program.cs) | `Probe`（状态采集与模块自适应判定）、`Actions`（进程启停/HTTP 控制）、`Native`（Win32 P/Invoke）、`MainForm`（窗口/托盘/WebView2 IPC）、`Program`（单实例/CLI：`--demo`、`--sniff-test`、`--check-update-test`） |
 | [src/ui/index.html](src/ui/index.html) | 页面 DOM 骨架；按钮通过 `data-act="<action>"` 绑定后端动作，通过 `#toast-stack` 承载底部通知胶囊 |
 | [src/ui/md3.css](src/ui/md3.css) | Material 3 Expressive 样式表（动态调色 CSS 变量、`#toast-stack` / `.toast-pill`、`.is-loading` 按钮态、`.dot-warn.pulse`） |
 | [src/ui/app.js](src/ui/app.js) | 状态渲染 `render(s)`、堆叠通知与计时器 `pendingOps` / `OP_META`、日志解析 `renderLogs()`、MD3 动态色板与设置页表单逻辑 |
@@ -66,6 +67,7 @@
 | `getConfig` / `redetectConfig` / `saveConfig` | 同步 | 环境页读取、重新嗅探、保存 `config.json` 并立即热生效 |
 | `browseFolder` / `browseFile` | 同步弹窗 | 打开系统文件/目录选择器并回发 `pickedPath` |
 | `openDsh` / `openBridge` / `openSnowluma` / `openFolder` | 同步 | 用默认浏览器或资源管理器打开 |
+| `checkUpdate` / `applyUpdate` / `openReleases` | 异步 / 同步 | 检查 GitHub Releases 新版、下载校验自替换重启、打开 Releases 页面 |
 | `min` / `max` / `close` / `dragStart` / `resizeStart` / `theme` / `cycleTheme` / `railWidth` / `jsError` | 同步 | 窗口控制、标题栏暗亮色同步与前端错误日志 |
 
 ### 3.2 宿主 → 前端（`PostWebMessageAsJson`）
@@ -77,6 +79,8 @@
 | `pickedPath` | `{ field, path }` | 填回对应的 `#cfg-<field>` 输入框 |
 | `hostAccent` | `{ systemAccent }` | 同步 Windows 系统强调色 |
 | `windowState` | `{ maximized }` | 切换最大化按钮图标 |
+| `visibility` | `{ hidden }` | 托盘隐藏/最小化时置位 `hostHidden` 并冻结前端动效 |
+| `appVersion` / `updateInfo` / `updateProgress` / `updateError` | `{ version }` / `{ data, silent }` / `{ text, pct }` | 内置更新当前版本、检查结果、下载进度与错误提示 |
 | `progress` | `{ action, text, pct }` | 异步动作进行中上报（前端当前由 `pendingOps` 自动维持秒数胶囊，若未标记 pending 会自动补标） |
 | `result` | `{ action, text }` | 对 `pendingOps` 中的动作调用 `finishOpPending(action, text)` 收起对应胶囊；其余动作弹出 `toast` |
 
@@ -126,6 +130,8 @@
    - `src/ui/*` 修改后必须同步编译进 exe 的 `EmbeddedResource`；`ExtractUi` 在运行时会释放到 `cache/ui/` 并覆盖写盘。
 6. **严禁提交本机隐私数据**
    - 公开仓库内绝不能出现真实路径、QQ 号、群号、密钥/Token 或运行态 `config.json` / `cache/` / `dist/`；`config.example.json` 必须保持全脱敏示例值。
+7. **严禁将 `IsNonClientRegionSupportEnabled = true` 与连续 CSS 动画混用**
+   - 开启后 WebView2 会在每次动画重绘（高刷屏可达 144Hz）高频触发 Win32 非客户区命中区域重算，导致宿主 C# 进程内核态 CPU 暴涨。无边框标题栏拖拽必须关闭该选项并走 `DragStart` -> `Native.ReleaseCapture()` + `WM_NCLBUTTONDOWN`；常驻环境动效只允许使用 GPU 合成属性（`transform` / `opacity`），禁用 `box-shadow` / `stroke-dashoffset` / `filter: blur()` 动画。
 
 ---
 
@@ -139,8 +145,9 @@ node --check src\ui\app.js
 dotnet publish src\JingXingPanel.csproj -c Release -r win-x64 -p:SelfContained=false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
 
-# 3. 命令行自测嗅探逻辑（不弹窗、只读安全）
+# 3. 命令行自测嗅探逻辑与更新检查（不弹窗、只读安全）
 .\dist\JingXingPanel.exe --sniff-test
+.\dist\JingXingPanel.exe --check-update-test
 
 # 4. 纯前端演示模式（不读写配置、不触碰真实服务）
 .\dist\JingXingPanel.exe --demo

@@ -307,7 +307,6 @@ function drawSpark(arr, lineId, areaId, w, h, fixedMax) {
     line.setAttribute('d', '');
     if (area) area.setAttribute('d', '');
     if (lineId === 'vram-line') {
-      if ($('vram-sheen')) $('vram-sheen').setAttribute('d', '');
       if ($('vram-tip')) $('vram-tip').style.opacity = '0';
     }
     return;
@@ -328,7 +327,6 @@ function drawSpark(arr, lineId, areaId, w, h, fixedMax) {
     area.setAttribute('d', `${d} L${last[0]},${h} L${coords[0][0]},${h} Z`);
   }
   if (lineId === 'vram-line') {
-    if ($('vram-sheen')) $('vram-sheen').setAttribute('d', d);
     const tip = $('vram-tip');
     if (tip) {
       tip.style.left = ((last[0] / w) * 100).toFixed(2) + '%';
@@ -355,13 +353,11 @@ const FAB_TARGET_AMP = 2.45;
 
 function initExpressiveShapes() {
   const wave = $('hero-wave-path');
-  const waveInner = $('hero-wave-path-inner');
   const clover = $('hero-clover-path');
   const fab = $('hero-fab-path');
-  if (wave) wave.setAttribute('d', polarWavePath(10, 45.4, 3.2, 0, 160));
-  if (waveInner) waveInner.setAttribute('d', polarWavePath(8, 36.5, 2.8, 0.35, 144));
-  if (clover) clover.setAttribute('d', polarWavePath(4, 41.5, 6.8, Math.PI / 4, 120));
-  if (fab) fab.setAttribute('d', polarWavePath(12, 42.5, 0, 0, 180));
+  if (wave) wave.setAttribute('d', polarWavePath(10, 45.4, 3.2, 0, 96));
+  if (clover) clover.setAttribute('d', polarWavePath(4, 41.5, 6.8, Math.PI / 4, 72));
+  if (fab) fab.setAttribute('d', polarWavePath(12, 42.5, 0, 0, 96));
 }
 
 let currentFabAmp = 0;
@@ -377,7 +373,7 @@ function morphFabAmp(targetAmp, immediate = false) {
   if (immediate || document.body.classList.contains('no-trans')) {
     currentFabAmp = targetAmp;
     const rBase = 42.2 + (currentFabAmp / FAB_TARGET_AMP) * 2.5;
-    fab.setAttribute('d', polarWavePath(12, rBase, currentFabAmp, 0, 180));
+    fab.setAttribute('d', polarWavePath(12, rBase, currentFabAmp, 0, 96));
     return;
   }
   const startAmp = currentFabAmp;
@@ -392,7 +388,7 @@ function morphFabAmp(targetAmp, immediate = false) {
     const k = easeOutBack(raw);
     currentFabAmp = Math.max(0, startAmp + (targetAmp - startAmp) * k);
     const rBase = 42.2 + Math.min(1.15, currentFabAmp / FAB_TARGET_AMP) * 2.5;
-    fab.setAttribute('d', polarWavePath(12, rBase, currentFabAmp, 0, 180));
+    fab.setAttribute('d', polarWavePath(12, rBase, currentFabAmp, 0, 96));
     if (raw < 1) fabMorphRaf = requestAnimationFrame(step);
     else {
       currentFabAmp = targetAmp;
@@ -673,7 +669,7 @@ function render(s) {
     pushHist(vramHist, vUsed != null ? vUsed : 0);
     drawSpark(vramHist, 'vram-line', 'vram-area', 180, 38, vTot || 8);
     setText('comfy-foot', effFeatures.tts ? `队列 ${qCount} · TTS ${ttsUp ? '在线' : '离线'}` : `队列 ${qCount}`);
-    if ($('vram-card')) $('vram-card').classList.toggle('is-live', (upBridge && comfyUp) || vUsed != null);
+    if ($('vram-card')) $('vram-card').classList.toggle('is-live', upBridge && comfyUp);
   } else if ($('vram-card')) {
     $('vram-card').classList.remove('is-live');
   }
@@ -1495,11 +1491,138 @@ $('opt-ambient')?.addEventListener('click', () => {
   toast(ambientMotion ? '已开启环境生命动效' : '已切换为安静静态模式');
 });
 
+let appVersion = '1.3.0';
+let updateBusy = false;
+
+function setVersionText(ver) {
+  if (!ver) return;
+  appVersion = String(ver).replace(/^v/i, '');
+  if ($('about-ver-chip')) $('about-ver-chip').textContent = 'v' + appVersion;
+  if ($('upd-badge') && !$('upd-badge').classList.contains('upd-new')) {
+    $('upd-badge').textContent = '当前 v' + appVersion;
+  }
+}
+
+function setCheckBtnBusy(busy) {
+  const b = $('btn-check-update');
+  if (!b) return;
+  b.disabled = busy;
+  b.classList.toggle('is-loading', busy);
+  const lbl = b.querySelector('.btn-lbl');
+  const ico = b.querySelector('.ms');
+  if (lbl) lbl.textContent = busy ? '检查中…' : '检查更新';
+  if (ico) {
+    ico.textContent = busy ? 'sync' : 'update';
+    ico.classList.toggle('spin', busy);
+  }
+}
+
+function renderUpdateInfo(info, silent) {
+  updateBusy = false;
+  setCheckBtnBusy(false);
+  if ($('btn-apply-update')) $('btn-apply-update').disabled = false;
+  if ($('upd-bar')) $('upd-bar').classList.add('hidden');
+  if (info?.currentVersion) setVersionText(info.currentVersion);
+
+  const badge = $('upd-badge');
+  const status = $('upd-status');
+  const sub = $('upd-sub');
+  const notes = $('upd-notes');
+  const applyBtn = $('btn-apply-update');
+  const dot = $('rail-update-dot');
+
+  if (!info || !info.ok) {
+    if (dot) dot.classList.add('hidden');
+    if (applyBtn) applyBtn.classList.add('hidden');
+    if (badge) { badge.classList.remove('upd-new'); badge.textContent = '当前 v' + appVersion; }
+    const msg = '检查更新失败：' + (info?.error || '网络不可达');
+    if (status) status.textContent = msg;
+    if (sub) sub.textContent = '可点击右侧 Releases 按钮手动下载更新';
+    if (!silent) toast(msg);
+    return;
+  }
+
+  if (info.demo) {
+    if (dot) dot.classList.add('hidden');
+    if (applyBtn) applyBtn.classList.add('hidden');
+    if (badge) { badge.classList.remove('upd-new'); badge.textContent = '当前 v' + appVersion; }
+    if (status) status.textContent = `演示模式（v${appVersion}）：已禁用联网更新`;
+    if (sub) sub.textContent = '正式版本可在「关于」页一键检查并更新';
+    if (!silent) toast(`演示模式：当前 v${appVersion}，已禁用联网更新`);
+    return;
+  }
+
+  if (info.hasUpdate) {
+    if (dot) dot.classList.remove('hidden');
+    if (badge) { badge.classList.add('upd-new'); badge.textContent = '有新版本 v' + info.latestVersion; }
+    const mb = info.assetSize > 0 ? `（约 ${(info.assetSize / 1048576).toFixed(1)} MB）` : '';
+    if (status) status.textContent = `发现新版本 v${info.latestVersion}${mb}`;
+    if (sub) sub.textContent = info.title || '点击「立即更新并重启」即可自动替换，不中断后台服务';
+    if (applyBtn) applyBtn.classList.remove('hidden');
+    if (notes) {
+      notes.textContent = info.notes || '';
+      notes.classList.toggle('hidden', !info.notes);
+    }
+    toast(silent ? `发现新版本 v${info.latestVersion}，可在「关于」页一键更新` : `发现新版本 v${info.latestVersion}`);
+  } else {
+    if (dot) dot.classList.add('hidden');
+    if (applyBtn) applyBtn.classList.add('hidden');
+    if (notes) notes.classList.add('hidden');
+    if (badge) { badge.classList.remove('upd-new'); badge.textContent = '已是最新 v' + appVersion; }
+    if (status) status.textContent = `当前已是最新版本（v${appVersion}）`;
+    if (sub) sub.textContent = '更新源：GitHub Releases · LT5SS/jingxing-panel';
+    if (!silent) toast('当前已是最新版本');
+  }
+}
+
+$('btn-check-update')?.addEventListener('click', () => {
+  if (updateBusy) return;
+  if (!HAS_HOST) {
+    toast('请在桌面客户端内检查更新');
+    return;
+  }
+  updateBusy = true;
+  setCheckBtnBusy(true);
+  if ($('upd-status')) $('upd-status').textContent = '正在连接 GitHub 检查最新版本…';
+  post({ action: 'checkUpdate', silent: false });
+});
+
+$('btn-apply-update')?.addEventListener('click', () => {
+  if (updateBusy) return;
+  if (!HAS_HOST) {
+    toast('请在桌面客户端内执行更新');
+    return;
+  }
+  updateBusy = true;
+  setCheckBtnBusy(true);
+  if ($('btn-check-update')) $('btn-check-update').disabled = true;
+  if ($('btn-apply-update')) $('btn-apply-update').disabled = true;
+  if ($('upd-bar')) $('upd-bar').classList.remove('hidden');
+  if ($('bar-upd')) $('bar-upd').style.width = '4%';
+  if ($('upd-status')) $('upd-status').textContent = '正在准备下载更新…';
+  post({ action: 'applyUpdate' });
+});
+
 /* ==================== WebView2 Messages ==================== */
 window.chrome?.webview?.addEventListener('message', (e) => {
   const m = e.data || {};
   if (m.type === 'status') {
     render(m.data || {});
+  } else if (m.type === 'appVersion') {
+    setVersionText(m.version);
+  } else if (m.type === 'updateInfo') {
+    renderUpdateInfo(m.data, !!m.silent);
+  } else if (m.type === 'updateProgress') {
+    if ($('upd-bar')) $('upd-bar').classList.remove('hidden');
+    if ($('bar-upd')) $('bar-upd').style.width = Math.max(2, Math.min(100, Number(m.pct) || 0)) + '%';
+    if ($('upd-status') && m.text) $('upd-status').textContent = m.text;
+  } else if (m.type === 'updateError') {
+    updateBusy = false;
+    setCheckBtnBusy(false);
+    if ($('btn-apply-update')) $('btn-apply-update').disabled = false;
+    if ($('upd-bar')) $('upd-bar').classList.add('hidden');
+    if ($('upd-status') && m.text) $('upd-status').textContent = m.text;
+    if (m.text) toast(m.text);
   } else if (m.type === 'config') {
     renderConfig(m.data, m.report, m.features);
   } else if (m.type === 'pickedPath' && m.field && m.path) {
@@ -1511,6 +1634,9 @@ window.chrome?.webview?.addEventListener('message', (e) => {
   } else if (m.type === 'windowState') {
     const ic = $('max-icon');
     if (ic) ic.textContent = m.maximized ? 'filter_none' : 'crop_square';
+  } else if (m.type === 'visibility') {
+    hostHidden = !!m.hidden;
+    syncAnimVisibility();
   } else if (m.type === 'progress') {
     if (m.action && OP_META[m.action] && !pendingOps.has(m.action)) {
       startOpPending(m.action);
@@ -1550,10 +1676,22 @@ document.addEventListener('mousedown', (e) => {
   const inTitle = !!e.target.closest?.('.titlebar, .rail-head');
   const l = x <= m, r = x >= w - m, b = y >= h - m;
   const t = !inTitle && y <= m;
-  if (!(l || r || t || b)) return;
-  const edge = (t ? 't' : '') + (b ? 'b' : '') + (l ? 'l' : '') + (r ? 'r' : '') || 'br';
-  e.preventDefault();
-  post({ action: 'resizeStart', edge });
+  if (l || r || t || b) {
+    const edge = (t ? 't' : '') + (b ? 'b' : '') + (l ? 'l' : '') + (r ? 'r' : '') || 'br';
+    e.preventDefault();
+    post({ action: 'resizeStart', edge });
+    return;
+  }
+  if (inTitle && e.detail === 1 && !e.target.closest?.('.no-drag, button, input, select, textarea, label, a')) {
+    e.preventDefault();
+    post({ action: 'dragStart' });
+  }
+});
+document.addEventListener('dblclick', (e) => {
+  if (e.button !== 0) return;
+  if (e.target.closest?.('.titlebar, .rail-head') && !e.target.closest?.('.no-drag, button, input, select, textarea, label, a')) {
+    post({ action: 'max' });
+  }
 });
 
 /* ==================== Keyboard Shortcuts & Live Theme Sync ==================== */
@@ -1679,11 +1817,25 @@ window.addEventListener('resize', () => {
   if (activePage === 'theme') syncSegThumb('theme-seg', true);
   if (activePage === 'settings') ['mod-comfyui', 'mod-sleep', 'mod-tts', 'mod-backup'].forEach((id) => syncSegThumb(id, true));
 });
+let hostHidden = false;
 function syncAnimVisibility() {
-  document.body.classList.toggle('anim-paused', !!document.hidden);
+  document.body.classList.toggle('anim-paused', !!document.hidden || hostHidden);
 }
 document.addEventListener('visibilitychange', syncAnimVisibility);
 syncAnimVisibility();
+
+function scheduleWhaleBlink() {
+  const delay = 5200 + Math.random() * 2400;
+  setTimeout(() => {
+    const hc = $('hero-card');
+    if (hc && heroRunning && ambientMotion && !document.hidden && !hostHidden && !hc.classList.contains('is-asleep')) {
+      hc.classList.add('is-blinking');
+      setTimeout(() => hc.classList.remove('is-blinking'), 150);
+    }
+    scheduleWhaleBlink();
+  }, delay);
+}
+scheduleWhaleBlink();
 
 post({ action: 'refresh' });
 requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('no-trans')));

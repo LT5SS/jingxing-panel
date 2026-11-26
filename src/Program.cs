@@ -1018,6 +1018,10 @@ internal static class Native
     public static extern bool SetForegroundWindow(IntPtr hwnd);
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    public static extern bool ReleaseCapture();
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     public static extern bool AttachConsole(int dwProcessId);
 
@@ -1147,6 +1151,7 @@ internal sealed class MainForm : Form
     {
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
         ShowInTaskbar = true;
+        _web.Visible = true;
         Show();
         WindowState = FormWindowState.Normal;
 
@@ -1161,6 +1166,12 @@ internal sealed class MainForm : Form
         Activate();
         BringToFront();
         ApplyRoundRegion();
+        PushVisibilityState(false);
+        if (!DemoMode)
+        {
+            _timer.Start();
+            PushStatus();
+        }
     }
 
     protected override void OnShown(EventArgs e)
@@ -1211,7 +1222,7 @@ internal sealed class MainForm : Form
             _web.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             _web.CoreWebView2.Settings.IsStatusBarEnabled = false;
-            _web.CoreWebView2.Settings.IsNonClientRegionSupportEnabled = true;
+            _web.CoreWebView2.Settings.IsNonClientRegionSupportEnabled = false;
             _web.CoreWebView2.WebMessageReceived += OnWebMessage;
             var startUri = new Uri(Path.Combine(_uiDir, "index.html")).AbsoluteUri + (DemoMode ? "?demo=1" : "");
             _web.CoreWebView2.Navigate(startUri);
@@ -1220,6 +1231,7 @@ internal sealed class MainForm : Form
             {
                 _timer.Tick += (_, _) => PushStatus();
                 _timer.Start();
+                _ = Task.Delay(5000).ContinueWith(_ => { if (!IsDisposed) CheckUpdateAsync(silent: true); });
             }
         }
         catch (Exception ex)
@@ -1275,12 +1287,29 @@ internal sealed class MainForm : Form
         catch { }
     }
 
+    private void PushVisibilityState(bool hidden)
+    {
+        try
+        {
+            if (!IsDisposed && _web.CoreWebView2 != null)
+            {
+                _web.CoreWebView2.PostWebMessageAsJson("{\"type\":\"visibility\",\"hidden\":" + (hidden ? "true" : "false") + "}");
+            }
+        }
+        catch { }
+    }
+
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
         try
         {
-            if (WindowState == FormWindowState.Minimized) return;
+            if (WindowState == FormWindowState.Minimized)
+            {
+                PushVisibilityState(true);
+                return;
+            }
+            PushVisibilityState(false);
             _web.Bounds = ClientRectangle;
             PushWindowState();
             if (_dragging) return;
@@ -1505,6 +1534,9 @@ internal sealed class MainForm : Form
                 "saveConfig" => SaveConfigFromMessage(e.WebMessageAsJson),
                 "browseFolder" => BrowseFolder(e.WebMessageAsJson),
                 "browseFile" => BrowseFile(e.WebMessageAsJson),
+                "checkUpdate" => SendDemoUpdateInfo(),
+                "applyUpdate" => "演示模式不支持在线更新",
+                "openReleases" => Open(Updater.ReleasesUrl, "已打开 Releases 页面"),
                 "railWidth" => "ok",
                 "theme" => ApplyTitleTheme(e.WebMessageAsJson),
                 "cycleTheme" => CycleTheme(),
@@ -1521,6 +1553,7 @@ internal sealed class MainForm : Form
                 _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "result", action, text = demoRes }));
             if (action == "refresh")
             {
+                PushAppVersion();
                 PushWindowState();
                 PushConfig();
                 _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "hostAccent", systemAccent = Probe.ReadSystemAccentHex() }));
@@ -1548,6 +1581,9 @@ internal sealed class MainForm : Form
             "saveConfig" => SaveConfigFromMessage(e.WebMessageAsJson),
             "browseFolder" => BrowseFolder(e.WebMessageAsJson),
             "browseFile" => BrowseFile(e.WebMessageAsJson),
+            "checkUpdate" => CheckUpdateAsync(ParseSilentFlag(e.WebMessageAsJson)),
+            "applyUpdate" => ApplyUpdateAsync(),
+            "openReleases" => Open(Updater.LatestHtmlUrl, "已打开 Releases 页面"),
             "refresh" => "ok",
             "railWidth" => "ok",
             "theme" => ApplyTitleTheme(e.WebMessageAsJson),
@@ -1563,13 +1599,123 @@ internal sealed class MainForm : Form
         if (IsDisposed || _web.CoreWebView2 == null) return;
         if (result != null)
             _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "result", action, text = result }));
-        if (action == "refresh") { PushWindowState(); PushConfig(); PushStatus(); }
+        if (action == "refresh") { PushAppVersion(); PushWindowState(); PushConfig(); PushStatus(); }
     }
 
     private string SendConfigHelper()
     {
         PushConfig();
         return "";
+    }
+
+    private void PostUiJson(object payload)
+    {
+        var json = JsonSerializer.Serialize(payload);
+        try
+        {
+            if (!IsDisposed && IsHandleCreated)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    try { if (!IsDisposed) _web.CoreWebView2?.PostWebMessageAsJson(json); } catch { }
+                }));
+            }
+        }
+        catch { }
+    }
+
+    private void PushAppVersion()
+    {
+        try
+        {
+            if (!IsDisposed && _web.CoreWebView2 != null)
+                _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                {
+                    type = "appVersion",
+                    version = Updater.CurrentVersion,
+                    demo = DemoMode
+                }));
+        }
+        catch { }
+    }
+
+    private static bool ParseSilentFlag(string raw)
+    {
+        try { return JsonNode.Parse(raw)?["silent"]?.GetValue<bool>() ?? false; }
+        catch { return false; }
+    }
+
+    private string SendDemoUpdateInfo()
+    {
+        try
+        {
+            if (!IsDisposed && _web.CoreWebView2 != null)
+                _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                {
+                    type = "updateInfo",
+                    silent = false,
+                    data = new
+                    {
+                        ok = true,
+                        demo = true,
+                        hasUpdate = false,
+                        currentVersion = Updater.CurrentVersion,
+                        htmlUrl = Updater.ReleasesUrl
+                    }
+                }));
+        }
+        catch { }
+        return "";
+    }
+
+    private string CheckUpdateAsync(bool silent)
+    {
+        Task.Run(async () =>
+        {
+            var res = await Updater.CheckLatestAsync().ConfigureAwait(false);
+            PostUiJson(new { type = "updateInfo", data = res, silent });
+        });
+        return null;
+    }
+
+    private string ApplyUpdateAsync()
+    {
+        Task.Run(async () =>
+        {
+            var (ok, msg, stagedPath) = await Updater.DownloadAndStageAsync((text, pct) =>
+                PostUiJson(new { type = "updateProgress", text, pct })).ConfigureAwait(false);
+            if (!ok)
+            {
+                PostUiJson(new { type = "updateError", text = msg });
+                return;
+            }
+            PostUiJson(new { type = "updateProgress", text = msg, pct = 100 });
+            await Task.Delay(350).ConfigureAwait(false);
+            try
+            {
+                Updater.LaunchReplacer(Environment.ProcessPath, stagedPath);
+                if (!IsDisposed && IsHandleCreated)
+                    BeginInvoke(new Action(ExitForUpdate));
+            }
+            catch (Exception ex)
+            {
+                PostUiJson(new { type = "updateError", text = "启动替换程序失败：" + ex.Message });
+            }
+        });
+        return null;
+    }
+
+    private void ExitForUpdate()
+    {
+        try
+        {
+            _reallyExit = true;
+            _timer.Stop();
+            if (_tray != null) _tray.Visible = false;
+            Program.ReleaseMutexForUpdate();
+            Close();
+        }
+        catch { }
     }
 
     private string RunWithProgress(string action, Func<Action<string, int>, string> job)
@@ -1696,35 +1842,23 @@ internal sealed class MainForm : Form
     private string DragStart(string raw)
     {
         if (WindowState == FormWindowState.Maximized) return "max";
-        double? rx = null, ry = null;
-        try
+        BeginInvoke(new Action(() =>
         {
-            var j = JsonNode.Parse(raw);
-            if (j?["rx"] != null && j?["ry"] != null)
+            try
             {
-                rx = Math.Clamp(Probe.ToDouble(j["rx"]), 0, 1);
-                ry = Math.Clamp(Probe.ToDouble(j["ry"]), 0, 1);
+                if (IsDisposed) return;
+                _dragging = true;
+                Native.ReleaseCapture();
+                Native.SendMessage(Handle, 0x00A1, (IntPtr)2, IntPtr.Zero); // WM_NCLBUTTONDOWN + HTCAPTION
             }
-        }
-        catch { }
-
-        if (!Native.GetCursorPos(out var start)) return "no-cursor";
-        int offX = rx.HasValue ? (int)Math.Round(rx.Value * _web.Width) : (start.X - Left);
-        int offY = ry.HasValue ? (int)Math.Round(ry.Value * _web.Height) : (start.Y - Top);
-        var t = new System.Windows.Forms.Timer { Interval = 16 };
-        _dragging = true;
-        t.Tick += (_, _) =>
-        {
-            if ((Native.GetAsyncKeyState(0x01) & 0x8000) == 0)
+            catch { }
+            finally
             {
-                t.Stop(); t.Dispose(); _dragging = false; ApplyRoundRegion(); return;
+                _dragging = false;
+                ApplyRoundRegion();
             }
-            if (!Native.GetCursorPos(out var cur)) return;
-            const uint flags = 0x0001 | 0x0004 | 0x0010;
-            Native.SetWindowPos(Handle, IntPtr.Zero, cur.X - offX, cur.Y - offY, 0, 0, flags);
-        };
-        t.Start();
-        return "ok";
+        }));
+        return "";
     }
 
     private string MinimizeSelf() { WindowState = FormWindowState.Minimized; return "ok"; }
@@ -1747,6 +1881,9 @@ internal sealed class MainForm : Form
     private void HideToTray()
     {
         if (!Visible) return;
+        if (!DemoMode) _timer.Stop();
+        PushVisibilityState(true);
+        _web.Visible = false;
         Hide();
         Program.Lifecycle("隐藏到托盘");
         try { _tray?.ShowBalloonTip(1800, ConfigStore.Current.AppName, "仍在后台运行，双击托盘图标可恢复窗口", ToolTipIcon.None); } catch { }
@@ -1815,9 +1952,24 @@ internal static class Program
         catch { }
     }
 
+    internal static void ReleaseMutexForUpdate()
+    {
+        try { _instanceMutex?.ReleaseMutex(); } catch { }
+        try { _instanceMutex?.Dispose(); _instanceMutex = null; } catch { }
+    }
+
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Any(a => a == "--check-update-test"))
+        {
+            var res = Updater.CheckLatestAsync().GetAwaiter().GetResult();
+            try { Native.AttachConsole(-1); } catch { }
+            try { Console.OutputEncoding = Encoding.UTF8; } catch { }
+            Console.WriteLine(JsonSerializer.Serialize(res, ConfigStore.JsonOpts));
+            return res.Ok ? 0 : 1;
+        }
+
         if (args.Any(a => a == "--sniff-test"))
         {
             var (cfg, rep) = AutoDetector.Detect(new AppConfig(), overwriteExisting: true);
@@ -1862,6 +2014,7 @@ internal static class Program
 
         try { Application.SetHighDpiMode(HighDpiMode.PerMonitorV2); } catch { }
         ConfigStore.LoadOrInitialize(persist: !MainForm.DemoMode);
+        if (!MainForm.DemoMode) Updater.CleanupPreviousUpdate();
         Lifecycle("启动 pid=" + Environment.ProcessId + " demo=" + MainForm.DemoMode);
 
         var revealName = MainForm.DemoMode ? DemoRevealEventName : RevealEventName;

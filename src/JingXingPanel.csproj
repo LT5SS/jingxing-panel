@@ -9,6 +9,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>JingXingPanel</AssemblyName>
     <RootNamespace>JingXingPanel</RootNamespace>
+    <Version>1.3.0</Version>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <FileVersion>1.3.0.0</FileVersion>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
