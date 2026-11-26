@@ -667,7 +667,7 @@ body.light .tb-btn:hover{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  height:23px;
+  height:24px;
   padding:0 10px;
   border-radius:var(--r-full);
   background:var(--md-surface-2);
@@ -686,22 +686,17 @@ body.light .tb-btn:hover{
 }
 .hero-run-pill .dot{
   position:relative;
-  width:7px;
-  height:7px;
-  flex:0 0 7px;
+  width:8px;
+  height:8px;
+  flex:0 0 8px;
   box-shadow:none;
 }
-.hero-run-pill.running .dot::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:50%;
-  background:var(--md-run-fg);
+.hero-run-pill.running .dot{
   animation:sonar-ring 2.2s ease-out infinite;
 }
 @keyframes sonar-ring{
-  0%{transform:scale(1);opacity:.65}
-  75%,100%{transform:scale(2.5);opacity:0}
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--md-run-fg) 48%,transparent)}
+  75%,100%{box-shadow:0 0 0 6px transparent}
 }
 
 .hero-id-row{
@@ -942,6 +937,7 @@ body.light .tb-btn:hover{
 #sleep-count.over{color:var(--md-err)}
 
 .spark-wrap{
+  position:relative;
   height:36px;
   margin:8px 0 6px;
 }
@@ -959,6 +955,8 @@ body.light .tb-btn:hover{
   overflow:hidden;
 }
 .bar i{
+  position:relative;
+  overflow:hidden;
   display:block;
   height:100%;
   width:0%;
@@ -1815,18 +1813,6 @@ body.compact .card.hero{padding:16px 18px}
   to{clip-path:circle(var(--ripple-r,1600px) at var(--ripple-x,50%) var(--ripple-y,50%))}
 }
 
-@media (prefers-reduced-motion:reduce){
-  .page.active .bento > .card,
-  .page.active .log-card,
-  .tb-page-title.title-swap,
-  .hero-fab-spin,
-  .hero-wave-spin,
-  .hero-run-pill.running .dot::after,
-  .rail-btn.active .ms{
-    animation:none !important;
-  }
-}
-
 /* ==================== Setup Banner & Environment Settings Page ==================== */
 .setup-banner{
   display:flex;
@@ -2022,4 +2008,367 @@ body.light .cfg-input:focus{
 }
 .port-item input:focus{border-color:var(--md-primary)}
 body.light .port-item input{background:var(--md-surface)}
+
+/* ==================== Ambient Living Motion ==================== */
+.hero-wave-spin-inner{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  animation:hero-spin 48s linear infinite;
+  animation-play-state:paused;
+}
+.card.hero.is-running .hero-wave-spin-inner{
+  animation-play-state:running;
+}
+.hero-wave-svg-inner path{
+  fill:var(--md-primary-tint);
+  opacity:.75;
+}
+
+@keyframes fab-aura-breathe{
+  0%,100%{opacity:.62;transform:scale(1.06)}
+  50%{opacity:1;transform:scale(1.22)}
+}
+.hero-toggle.stop .hero-fab-glow{
+  animation:fab-aura-breathe 4.6s ease-in-out infinite;
+}
+
+.hero-bubbles{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:1;
+  opacity:0;
+  transition:opacity .5s ease;
+}
+.card.hero.is-running .hero-bubbles{
+  opacity:1;
+}
+.hero-bubbles i{
+  position:absolute;
+  left:var(--x);
+  bottom:-14px;
+  width:var(--sz);
+  height:var(--sz);
+  border-radius:50%;
+  border:1px solid var(--md-primary);
+  background:var(--md-primary-tint);
+  opacity:0;
+  will-change:transform,opacity;
+  animation:whale-bubble-rise var(--dur,10s) linear var(--delay,0s) infinite;
+  animation-play-state:paused;
+}
+.card.hero.is-running .hero-bubbles i{
+  animation-play-state:running;
+}
+.card.hero.is-asleep .hero-bubbles i{
+  animation-duration:calc(var(--dur,10s) * 1.45);
+}
+@keyframes whale-bubble-rise{
+  0%{transform:translate3d(0,0,0) scale(.65);opacity:0}
+  15%{opacity:.26}
+  55%{transform:translate3d(var(--drift,6px),-92px,0) scale(1);opacity:.18}
+  100%{transform:translate3d(calc(var(--drift,6px) * -0.5),-190px,0) scale(1.12);opacity:0}
+}
+body.light .hero-bubbles i{
+  border-color:rgba(103,80,164,.32);
+}
+
+.whale-swim{
+  transform-box:fill-box;
+  transform-origin:center;
+}
+.whale-tail{
+  transform-box:fill-box;
+  transform-origin:18% 72%;
+}
+.whale-eye{
+  transform-box:fill-box;
+  transform-origin:center;
+}
+.card.hero.is-running .whale-swim{
+  animation:whale-float 4.8s ease-in-out infinite;
+}
+.card.hero.is-running.is-asleep .whale-swim{
+  animation-duration:8.5s;
+}
+.card.hero.is-running .whale-tail{
+  animation:whale-tail-wag 4.8s ease-in-out infinite;
+}
+.card.hero.is-running.is-asleep .whale-tail{
+  animation-duration:8.5s;
+}
+.card.hero.is-running:not(.is-asleep) .whale-eye{
+  animation:whale-blink 6.4s ease-in-out infinite;
+}
+.card.hero.is-asleep .whale-eye{
+  transform:scaleY(.18);
+  animation:none;
+}
+@keyframes whale-float{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  50%{transform:translateY(-1.3px) rotate(1.8deg)}
+}
+@keyframes whale-tail-wag{
+  0%,100%{transform:rotate(-5deg)}
+  50%{transform:rotate(4deg)}
+}
+@keyframes whale-blink{
+  0%,91%,97%,100%{transform:scaleY(1)}
+  94%{transform:scaleY(.12)}
+}
+
+.hero-heart-ico{
+  transform-origin:center;
+}
+.card.hero.is-running .hero-heart-ico{
+  animation:heart-lubdub 3.2s ease-out infinite;
+}
+@keyframes heart-lubdub{
+  0%,28%,100%{transform:scale(1);color:var(--md-outline)}
+  6%{transform:scale(1.24);color:var(--md-run-fg)}
+  12%{transform:scale(1);color:var(--md-outline)}
+  18%{transform:scale(1.15);color:var(--md-run-fg)}
+}
+
+.hb-ecg{
+  flex:0 0 64px;
+  overflow:visible;
+}
+.hb-ecg-base{
+  fill:none;
+  stroke:var(--md-outline);
+  stroke-width:1.4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.26;
+}
+.hb-ecg-pulse{
+  fill:none;
+  stroke:var(--md-ok);
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:28 100;
+  stroke-dashoffset:128;
+  opacity:0;
+}
+.heartbeat-bar.is-alive .hb-ecg-pulse{
+  animation:ecg-sweep 3.2s cubic-bezier(.35,0,.25,1) infinite;
+}
+.heartbeat-bar.is-warn .hb-ecg-pulse{
+  stroke:var(--md-warn);
+  animation:ecg-sweep 5.2s cubic-bezier(.35,0,.25,1) infinite;
+}
+@keyframes ecg-sweep{
+  0%{stroke-dashoffset:128;opacity:0}
+  10%{opacity:1}
+  64%{stroke-dashoffset:-28;opacity:.92}
+  74%,100%{stroke-dashoffset:-28;opacity:0}
+}
+.heartbeat-bar #hb-dot{
+  position:relative;
+}
+.heartbeat-bar.beat-flash #hb-dot{
+  animation:hb-ring .68s ease-out forwards;
+}
+@keyframes hb-ring{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--md-ok) 65%,transparent)}
+  100%{box-shadow:0 0 0 8px transparent}
+}
+
+.card.node.node-online .dot-green{
+  animation:node-dot-breathe 3.8s ease-in-out infinite;
+}
+#node-dsh.node-online .dot-green{animation-delay:.9s}
+#node-sl.node-online .dot-green{animation-delay:1.8s}
+#comfy-card.node-online .dot-green{animation-delay:2.7s}
+@keyframes node-dot-breathe{
+  0%,100%{box-shadow:0 0 0 3px var(--md-ok-bg);opacity:1}
+  50%{box-shadow:0 0 0 6px var(--md-ok-bg);opacity:.84}
+}
+
+.card.node.node-busy::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:-45%;
+  width:45%;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--md-primary),transparent);
+  opacity:.72;
+  animation:node-top-sweep 2.8s ease-in-out infinite;
+}
+@keyframes node-top-sweep{
+  0%{transform:translateX(0);opacity:0}
+  20%{opacity:.78}
+  80%{opacity:.78}
+  100%{transform:translateX(325%);opacity:0}
+}
+.card.node.node-busy .node-ico .ms{
+  animation:star-twinkle 2.2s ease-in-out infinite;
+}
+@keyframes star-twinkle{
+  0%,100%{transform:scale(1) rotate(0deg);opacity:1}
+  50%{transform:scale(1.14) rotate(12deg);opacity:.8}
+}
+
+.spark-tip{
+  position:absolute;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--md-primary);
+  box-shadow:0 0 0 2px var(--md-surface-1);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  opacity:0;
+  transition:left .32s var(--ease-std),top .32s var(--ease-std),opacity .25s ease;
+}
+.telemetry.is-live .spark-tip{
+  animation:tip-halo-pulse 2.6s ease-out infinite;
+}
+@keyframes tip-halo-pulse{
+  0%{box-shadow:0 0 0 2px var(--md-surface-1),0 0 0 2px color-mix(in srgb,var(--md-primary) 45%,transparent)}
+  75%,100%{box-shadow:0 0 0 2px var(--md-surface-1),0 0 0 9px transparent}
+}
+.spark-sheen{
+  stroke-dasharray:18 100;
+  stroke-dashoffset:118;
+  opacity:0;
+}
+.telemetry.is-live .spark-sheen{
+  animation:spark-sheen-run 5.6s ease-in-out infinite;
+}
+@keyframes spark-sheen-run{
+  0%{stroke-dashoffset:118;opacity:0}
+  12%{opacity:.68}
+  58%{stroke-dashoffset:-18;opacity:.68}
+  68%,100%{stroke-dashoffset:-18;opacity:0}
+}
+
+.telemetry.is-live .bar i::after,
+.sleep-card.is-live .bar i::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  width:42%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.42),transparent);
+  transform:translateX(-140%);
+  animation:bar-shimmer 4.4s ease-in-out infinite;
+}
+@keyframes bar-shimmer{
+  0%{transform:translateX(-140%)}
+  48%,100%{transform:translateX(340%)}
+}
+
+#sleep-card{
+  overflow:hidden;
+}
+#sleep-card.is-asleep{
+  background:radial-gradient(circle at 88% 14%,var(--md-primary-tint),transparent 62%),var(--md-surface-1);
+}
+.sleep-zzz{
+  position:absolute;
+  right:52px;
+  top:10px;
+  width:28px;
+  height:36px;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .4s ease;
+}
+#sleep-card.is-asleep .sleep-zzz{
+  opacity:1;
+}
+.sleep-zzz span{
+  position:absolute;
+  bottom:0;
+  right:6px;
+  font:700 11px/1 "Segoe UI Variable Display","Segoe UI",sans-serif;
+  color:var(--md-primary);
+  opacity:0;
+  animation:zzz-float 5.4s ease-in-out infinite;
+  animation-play-state:paused;
+}
+#sleep-card.is-asleep .sleep-zzz span{
+  animation-play-state:running;
+}
+.sleep-zzz span:nth-child(2){
+  right:14px;
+  font-size:12.5px;
+  animation-delay:1.8s;
+}
+.sleep-zzz span:nth-child(3){
+  right:2px;
+  font-size:14px;
+  animation-delay:3.6s;
+}
+@keyframes zzz-float{
+  0%{transform:translate(0,0) scale(.75);opacity:0}
+  20%{opacity:.62}
+  75%{transform:translate(5px,-18px) scale(1);opacity:.38}
+  100%{transform:translate(8px,-24px) scale(1.06);opacity:0}
+}
+
+body.anim-paused *,
+body.anim-paused *::before,
+body.anim-paused *::after{
+  animation-play-state:paused !important;
+}
+
+body.ambient-off .hero-wave-spin,
+body.ambient-off .hero-wave-spin-inner,
+body.ambient-off .hero-toggle.stop .hero-fab-glow,
+body.ambient-off .hero-run-pill.running .dot,
+body.ambient-off .hero-bubbles i,
+body.ambient-off .whale-swim,
+body.ambient-off .whale-tail,
+body.ambient-off .whale-eye,
+body.ambient-off .hero-heart-ico,
+body.ambient-off .hb-ecg-pulse,
+body.ambient-off .card.node .dot-green,
+body.ambient-off .card.node.node-busy::before,
+body.ambient-off .card.node.node-busy .node-ico .ms,
+body.ambient-off .telemetry .spark-tip,
+body.ambient-off .telemetry .spark-sheen,
+body.ambient-off .bar i::after,
+body.ambient-off .sleep-zzz span{
+  animation:none !important;
+}
+body.ambient-off .hero-bubbles,
+body.ambient-off .sleep-zzz,
+body.ambient-off .spark-sheen,
+body.ambient-off .hb-ecg-pulse{
+  display:none !important;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .page.active .bento > .card,
+  .page.active .log-card,
+  .tb-page-title.title-swap,
+  .hero-fab-spin,
+  .hero-wave-spin,
+  .hero-wave-spin-inner,
+  .hero-toggle.stop .hero-fab-glow,
+  .hero-run-pill.running .dot,
+  .hero-bubbles i,
+  .whale-swim,
+  .whale-tail,
+  .whale-eye,
+  .hero-heart-ico,
+  .hb-ecg-pulse,
+  .card.node .dot-green,
+  .card.node.node-busy::before,
+  .card.node.node-busy .node-ico .ms,
+  .spark-tip,
+  .spark-sheen,
+  .bar i::after,
+  .sleep-zzz span,
+  .rail-btn.active .ms{
+    animation:none !important;
+  }
+}
 

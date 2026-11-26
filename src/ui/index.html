@@ -112,11 +112,24 @@
                   <path id="hero-wave-path" d=""/>
                 </svg>
               </div>
+              <div class="hero-wave-spin-inner">
+                <svg viewBox="0 0 100 100" class="hero-wave-svg hero-wave-svg-inner">
+                  <path id="hero-wave-path-inner" d=""/>
+                </svg>
+              </div>
+            </div>
+            <div class="hero-bubbles" aria-hidden="true">
+              <i style="--x:14%;--sz:5px;--dur:9.5s;--delay:0s;--drift:7px"></i>
+              <i style="--x:31%;--sz:7px;--dur:11.8s;--delay:-3.2s;--drift:-8px"></i>
+              <i style="--x:52%;--sz:4px;--dur:8.6s;--delay:-5.8s;--drift:6px"></i>
+              <i style="--x:67%;--sz:8px;--dur:12.6s;--delay:-1.9s;--drift:-9px"></i>
+              <i style="--x:81%;--sz:5px;--dur:10.2s;--delay:-7.1s;--drift:7px"></i>
+              <i style="--x:91%;--sz:6px;--dur:11.2s;--delay:-4.5s;--drift:-6px"></i>
             </div>
             <div class="hero-main">
               <div class="hero-left">
                 <div class="hero-status-row">
-                  <span class="hero-status-lbl"><span class="ms">monitor_heart</span>状态</span>
+                  <span class="hero-status-lbl"><span class="ms hero-heart-ico">monitor_heart</span>状态</span>
                   <span class="hero-run-pill" id="hero-state-pill">
                     <i class="dot dot-gray" id="hero-dot"></i>
                     <span id="hero-state">检测中</span>
@@ -125,16 +138,16 @@
                 <div class="hero-id-row">
                   <div class="clover-badge" aria-hidden="true">
                     <svg viewBox="0 0 100 100" class="clover-bg"><path id="hero-clover-path" d=""/></svg>
-                    <svg class="clover-ico" viewBox="0 0 28 28" width="22" height="22" fill="none">
+                    <svg class="clover-ico whale-svg" viewBox="0 0 28 28" width="22" height="22" fill="none">
                       <defs>
                         <mask id="whale-eye-mask">
                           <rect width="28" height="28" fill="#fff"/>
-                          <circle cx="11.2" cy="13.1" r="1.3" fill="#000"/>
+                          <circle class="whale-eye" cx="11.2" cy="13.1" r="1.3" fill="#000"/>
                         </mask>
                       </defs>
-                      <g mask="url(#whale-eye-mask)">
-                        <path d="M5 17.5C5 12.2 9.1 8 14.3 8c3.9 0 7.1 2.2 8.4 5.5.4 1-.3 2.1-1.4 2.1h-2.5c-.6 0-1.1.3-1.5.7-1.1 1.3-2.9 2.2-4.8 2.2H9.2c-1.1 0-1.8 1-1.3 2 .3.6-.1 1.3-.8 1.2C5.8 21.3 5 19.6 5 17.5Z" fill="currentColor" opacity="0.95"/>
-                        <path d="M21.2 9.2c1.2-.9 2.4-2.1 2.8-3.4-.3 1.7.5 3.1 1.7 3.9-1.5.5-3.1.2-4.5-.5Z" fill="currentColor"/>
+                      <g class="whale-swim" mask="url(#whale-eye-mask)">
+                        <path class="whale-body" d="M5 17.5C5 12.2 9.1 8 14.3 8c3.9 0 7.1 2.2 8.4 5.5.4 1-.3 2.1-1.4 2.1h-2.5c-.6 0-1.1.3-1.5.7-1.1 1.3-2.9 2.2-4.8 2.2H9.2c-1.1 0-1.8 1-1.3 2 .3.6-.1 1.3-.8 1.2C5.8 21.3 5 19.6 5 17.5Z" fill="currentColor" opacity="0.95"/>
+                        <path class="whale-tail" d="M21.2 9.2c1.2-.9 2.4-2.1 2.8-3.4-.3 1.7.5 3.1 1.7 3.9-1.5.5-3.1.2-4.5-.5Z" fill="currentColor"/>
                       </g>
                     </svg>
                   </div>
@@ -196,8 +209,10 @@
                   </linearGradient>
                 </defs>
                 <path class="spark-area" id="vram-area" fill="url(#vram-grad)" d=""/>
-                <path class="spark-line" id="vram-line" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d=""/>
+                <path class="spark-line" id="vram-line" vector-effect="non-scaling-stroke" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d=""/>
+                <path class="spark-sheen" id="vram-sheen" vector-effect="non-scaling-stroke" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" pathLength="100" d=""/>
               </svg>
+              <span class="spark-tip" id="vram-tip" aria-hidden="true"></span>
             </div>
             <div class="bar"><i id="bar-vram"></i></div>
             <div class="card-foot" id="comfy-foot">队列 0 · TTS 离线</div>
@@ -205,6 +220,7 @@
 
           <!-- Sleep & Rhythm Card (auto-hidden if custom sleep / absent) -->
           <article class="card sleep-card col-3" id="sleep-card">
+            <div class="sleep-zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
             <div class="card-head">
               <span class="card-cap" id="sleep-cap">作息节律</span>
               <div class="card-head-right">
@@ -320,10 +336,14 @@
                 </div>
               </div>
             </div>
-            <div class="heartbeat-bar">
+            <div class="heartbeat-bar" id="heartbeat-bar">
               <span class="dot dot-green" id="hb-dot"></span>
               <span class="hb-label">桥接心跳</span>
               <strong id="k-beat">—</strong>
+              <svg class="hb-ecg" viewBox="0 0 64 18" width="64" height="18" aria-hidden="true">
+                <path class="hb-ecg-base" d="M0,10 L14,10 L18,10 L21,6 L24,13 L28,2 L32,16 L35,9 L39,10 L64,10"/>
+                <path class="hb-ecg-pulse" pathLength="100" d="M0,10 L14,10 L18,10 L21,6 L24,13 L28,2 L32,16 L35,9 L39,10 L64,10"/>
+              </svg>
               <span class="hb-sp"></span>
               <span class="hb-tts" id="tts-line">TTS 离线</span>
             </div>
@@ -400,6 +420,13 @@
                   <small>启动或切换页面时保持左侧文字标签展开</small>
                 </div>
                 <span class="md-switch" id="sw-rail-expand"><i></i></span>
+              </div>
+              <div class="setting-row clickable-row" id="opt-ambient">
+                <div class="s-info">
+                  <b>环境生命动效</b>
+                  <small>无交互时保持小鲸鱼眨眼浮游、心跳波形、光晕呼吸与气泡氛围</small>
+                </div>
+                <span class="md-switch on" id="sw-ambient"><i></i></span>
               </div>
             </div>
           </article>

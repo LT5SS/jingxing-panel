@@ -75,6 +75,7 @@ let customSeedHex = localStorage.getItem('jx-custom-seed') || '#7c5dff';
 let pureBlack = localStorage.getItem('jx-pure-black') === '1';
 let compactMode = localStorage.getItem('jx-compact') === '1';
 let railDefaultOpen = params.get('rail') === '1' || localStorage.getItem('jx-rail-open') === '1';
+let ambientMotion = localStorage.getItem('jx-ambient') !== '0';
 
 function activeSeedHex() {
   if (seedChoice === 'system') return systemAccentHex || '#6669cc';
@@ -161,6 +162,7 @@ function applyMaterialPalette(syncImmediate = false) {
   document.body.classList.toggle('light', !dark);
   document.body.classList.toggle('pure-black', dark && pureBlack);
   document.body.classList.toggle('compact', compactMode);
+  document.body.classList.toggle('ambient-off', !ambientMotion);
 
   const META = {
     auto: ['brightness_auto', '跟随系统'],
@@ -192,6 +194,7 @@ function applyMaterialPalette(syncImmediate = false) {
   if ($('sw-pure-black')) $('sw-pure-black').classList.toggle('on', pureBlack);
   if ($('sw-compact')) $('sw-compact').classList.toggle('on', compactMode);
   if ($('sw-rail-expand')) $('sw-rail-expand').classList.toggle('on', railDefaultOpen);
+  if ($('sw-ambient')) $('sw-ambient').classList.toggle('on', ambientMotion);
 
   post({ action: 'theme', dark, bg: tokens['--md-bg'] });
 }
@@ -303,6 +306,10 @@ function drawSpark(arr, lineId, areaId, w, h, fixedMax) {
   if (!arr.length) {
     line.setAttribute('d', '');
     if (area) area.setAttribute('d', '');
+    if (lineId === 'vram-line') {
+      if ($('vram-sheen')) $('vram-sheen').setAttribute('d', '');
+      if ($('vram-tip')) $('vram-tip').style.opacity = '0';
+    }
     return;
   }
   const pts = arr.length === 1 ? [arr[0], arr[0]] : arr;
@@ -310,15 +317,24 @@ function drawSpark(arr, lineId, areaId, w, h, fixedMax) {
   const min = fixedMax > 0 ? 0 : Math.min(...pts) * 0.85;
   const span = Math.max(max - min, 0.1);
   const coords = pts.map((v, i) => {
-    const x = (i / (pts.length - 1)) * w;
+    const x = 3 + (i / (pts.length - 1)) * (w - 6);
     const y = h - 3 - ((v - min) / span) * (h - 6);
     return [Number(x.toFixed(1)), Number(y.toFixed(1))];
   });
   const d = coords.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(' ');
   line.setAttribute('d', d);
+  const last = coords[coords.length - 1];
   if (area) {
-    const last = coords[coords.length - 1];
-    area.setAttribute('d', `${d} L${last[0]},${h} L0,${h} Z`);
+    area.setAttribute('d', `${d} L${last[0]},${h} L${coords[0][0]},${h} Z`);
+  }
+  if (lineId === 'vram-line') {
+    if ($('vram-sheen')) $('vram-sheen').setAttribute('d', d);
+    const tip = $('vram-tip');
+    if (tip) {
+      tip.style.left = ((last[0] / w) * 100).toFixed(2) + '%';
+      tip.style.top = ((last[1] / h) * 100).toFixed(2) + '%';
+      tip.style.opacity = '1';
+    }
   }
 }
 
@@ -339,9 +355,11 @@ const FAB_TARGET_AMP = 2.45;
 
 function initExpressiveShapes() {
   const wave = $('hero-wave-path');
+  const waveInner = $('hero-wave-path-inner');
   const clover = $('hero-clover-path');
   const fab = $('hero-fab-path');
   if (wave) wave.setAttribute('d', polarWavePath(10, 45.4, 3.2, 0, 160));
+  if (waveInner) waveInner.setAttribute('d', polarWavePath(8, 36.5, 2.8, 0.35, 144));
   if (clover) clover.setAttribute('d', polarWavePath(4, 41.5, 6.8, Math.PI / 4, 120));
   if (fab) fab.setAttribute('d', polarWavePath(12, 42.5, 0, 0, 180));
 }
@@ -485,6 +503,7 @@ function applyFeatureVisibility(features, ttsUp = false) {
 let heroRunning = false;
 let heroBusy = false;
 let comfyUp = false;
+let prevBeatAgoSec = null;
 let demoToggleOverride = params.get('state') === 'stopped' ? false : null;
 
 const tweenState = new Map();
@@ -608,7 +627,14 @@ function render(s) {
 
   const asleep = effFeatures.sleep && s.sleep?.asleep === true;
   const napping = effFeatures.sleep && s.sleep?.napping === true;
+  const sleeping = upBridge && (asleep || napping);
   const recentTalk = s.activityAgoMin != null && s.activityAgoMin < 15;
+
+  if ($('hero-card')) $('hero-card').classList.toggle('is-asleep', sleeping);
+  if ($('sleep-card')) {
+    $('sleep-card').classList.toggle('is-asleep', sleeping);
+    $('sleep-card').classList.toggle('is-live', upBridge);
+  }
 
   const pillStateText = !upBridge ? '已停止' : napping ? '运行中 · 小睡' : asleep ? '运行中 · 在睡' : '运行中';
   const topStateText = !upBridge ? '服务离线' : napping ? '小睡中' : asleep ? '在睡' : recentTalk ? '在线 · 刚说过话' : '在线';
@@ -647,6 +673,9 @@ function render(s) {
     pushHist(vramHist, vUsed != null ? vUsed : 0);
     drawSpark(vramHist, 'vram-line', 'vram-area', 180, 38, vTot || 8);
     setText('comfy-foot', effFeatures.tts ? `队列 ${qCount} · TTS ${ttsUp ? '在线' : '离线'}` : `队列 ${qCount}`);
+    if ($('vram-card')) $('vram-card').classList.toggle('is-live', (upBridge && comfyUp) || vUsed != null);
+  } else if ($('vram-card')) {
+    $('vram-card').classList.remove('is-live');
   }
   setText('tts-line', `TTS ${ttsUp ? '在线' : '离线'}`);
 
@@ -705,12 +734,17 @@ function render(s) {
   // Service Nodes
   setText('m-bridge', upBridge ? '在线' : '离线');
   setDot($('m-dot-bridge'), upBridge ? 'green' : 'red');
+  if ($('node-bridge')) $('node-bridge').classList.toggle('node-online', upBridge);
 
-  setText('m-dsh', s.dsh?.up ? '在线' : '离线');
-  setDot($('m-dot-dsh'), s.dsh?.up ? 'green' : 'red');
+  const dshUp = !!s.dsh?.up;
+  setText('m-dsh', dshUp ? '在线' : '离线');
+  setDot($('m-dot-dsh'), dshUp ? 'green' : 'red');
+  if ($('node-dsh')) $('node-dsh').classList.toggle('node-online', dshUp);
 
-  setText('m-sl', s.snowluma?.up ? '在线' : '离线');
-  setDot($('m-dot-sl'), s.snowluma?.up ? 'green' : 'red');
+  const slUp = !!s.snowluma?.up;
+  setText('m-sl', slUp ? '在线' : '离线');
+  setDot($('m-dot-sl'), slUp ? 'green' : 'red');
+  if ($('node-sl')) $('node-sl').classList.toggle('node-online', slUp);
 
   if (effFeatures.comfyui) {
     setText('m-comfy', pendingOps.has('comfyStart') ? '启动中…' : pendingOps.has('comfyStop') ? '停止中…' : (comfyUp ? '运行中' : '已休眠'));
@@ -720,8 +754,14 @@ function render(s) {
     } else {
       setDot(comfyDot, comfyUp ? 'green' : 'gray');
     }
+    if ($('comfy-card')) {
+      $('comfy-card').classList.toggle('node-online', comfyUp);
+      $('comfy-card').classList.toggle('node-busy', comfyUp && qCount > 0);
+    }
     setText('comfy-sub', `队列 ${qCount}`);
     if ($('comfy-switch')) $('comfy-switch').classList.toggle('on', comfyUp);
+  } else if ($('comfy-card')) {
+    $('comfy-card').classList.remove('node-online', 'node-busy');
   }
 
   // Metrics
@@ -730,7 +770,22 @@ function render(s) {
   if (effFeatures.sleep) setText('k-debt', fmtDur(s.sleep?.debtMin ?? 0));
   tweenNumber('k-mem', s.memMB, (v) => v.toFixed(1) + ' MB');
   setText('k-beat', beatStr);
-  setDot($('hb-dot'), upBridge ? ((s.bridge?.beatAgoSec ?? 0) > 120 ? 'warn' : 'green') : 'red');
+  const beatAgo = s.bridge?.beatAgoSec;
+  const beatWarn = upBridge && (beatAgo ?? 0) > 120;
+  setDot($('hb-dot'), upBridge ? (beatWarn ? 'warn' : 'green') : 'red');
+  const hbBar = $('heartbeat-bar');
+  if (hbBar) {
+    hbBar.classList.toggle('is-alive', upBridge && !beatWarn);
+    hbBar.classList.toggle('is-warn', beatWarn);
+    hbBar.classList.toggle('is-offline', !upBridge);
+    if (upBridge && beatAgo != null && prevBeatAgoSec != null && beatAgo < prevBeatAgoSec) {
+      hbBar.classList.remove('beat-flash');
+      void hbBar.offsetWidth;
+      hbBar.classList.add('beat-flash');
+      setTimeout(() => hbBar.classList.remove('beat-flash'), 700);
+    }
+  }
+  prevBeatAgoSec = beatAgo != null ? beatAgo : null;
   pushHist(memHist, s.memMB);
   drawSpark(memHist, 'mem-line', null, 64, 20, 0);
 }
@@ -1433,6 +1488,12 @@ $('opt-rail-expand')?.addEventListener('click', () => {
   setRailExpanded(railDefaultOpen);
   applyMaterialPalette();
 });
+$('opt-ambient')?.addEventListener('click', () => {
+  ambientMotion = !ambientMotion;
+  localStorage.setItem('jx-ambient', ambientMotion ? '1' : '0');
+  applyMaterialPalette();
+  toast(ambientMotion ? '已开启环境生命动效' : '已切换为安静静态模式');
+});
 
 /* ==================== WebView2 Messages ==================== */
 window.chrome?.webview?.addEventListener('message', (e) => {
@@ -1618,4 +1679,11 @@ window.addEventListener('resize', () => {
   if (activePage === 'theme') syncSegThumb('theme-seg', true);
   if (activePage === 'settings') ['mod-comfyui', 'mod-sleep', 'mod-tts', 'mod-backup'].forEach((id) => syncSegThumb(id, true));
 });
+function syncAnimVisibility() {
+  document.body.classList.toggle('anim-paused', !!document.hidden);
+}
+document.addEventListener('visibilitychange', syncAnimVisibility);
+syncAnimVisibility();
+
 post({ action: 'refresh' });
+requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('no-trans')));
